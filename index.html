@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Grifos Mágicos RPG</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background-color: #f0f0f0; display: flex; height: 100vh; box-sizing: border-box; overflow: hidden; }
+        h3 { margin-top: 0; padding-bottom: 5px; border-bottom: 1px solid #ccc; font-size: 16px; }
+        
+        .panel { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .left-panel { width: 350px; flex-shrink: 0; }
+        .center-panel { flex-grow: 1; margin: 0 15px; display: flex; flex-direction: column; overflow: hidden; }
+        .right-panel { width: 250px; flex-shrink: 0; }
+
+        .preview-box { display: flex; justify-content: center; background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 10px; }
+        canvas#previewCanvas { border: 1px dashed #aaa; }
+        
+        .paper-container { flex-grow: 1; border: 2px solid #333; background: white; overflow: auto; position: relative; cursor: crosshair; }
+        canvas#paperCanvas { display: block; }
+        
+        .grid-layout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; text-align: center; align-items: center; }
+        
+        .matrix-container { overflow-x: auto; background: #fafafa; padding: 10px; border: 1px solid #ddd; }
+        table.matrix-table { border-collapse: collapse; margin: 0 auto; }
+        table.matrix-table td { padding: 2px; }
+        table.matrix-table select { width: 45px; height: 30px; text-align: center; font-family: monospace; font-size: 14px; }
+        
+        button { padding: 8px 12px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        button.tool-btn { background: #28a745; margin-bottom: 5px; width: 100%;}
+        button.tool-btn:hover { background: #218838; }
+        button.color-btn { width: 100%; border: 1px solid #000; text-shadow: 1px 1px 2px rgba(255,255,255,0.5); }
+        
+        .stamp-slot { border: 1px solid #ccc; padding: 10px; border-radius: 4px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 5px; background: #f9f9f9; }
+        .stamp-label { font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 5px; }
+        
+        input[type="checkbox"], select { cursor: pointer; }
+        .header-info { color: blue; font-weight: bold; margin-bottom: 5px; font-size: 14px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="panel left-panel">
+        <h3>Ferramenta: Pincel</h3>
+        
+        <div class="preview-box">
+            <canvas id="previewCanvas" width="220" height="220"></canvas>
+        </div>
+
+        <input type="color" id="lineColor" value="#000000" style="display:none;">
+        <button id="btnColor" class="color-btn" style="background-color: #000000; color: white;">Escolher Cor das Linhas</button>
+
+        <label><strong>Nível do Círculo:</strong></label>
+        <select id="levelCombo">
+            <option value="1">Nível 1 (Apenas Núcleo)</option>
+            <option value="2">Nível 2 (Matriz 3x3)</option>
+            <option value="3">Nível 3 (Matriz 5x5)</option>
+            <option value="4">Nível 4 (Matriz 7x7)</option>
+        </select>
+
+        <label><strong>Núcleo (Letra Central):</strong></label>
+        <select id="coreCombo"></select>
+
+        <label><strong>Barras de Direção:</strong></label>
+        <div class="grid-layout">
+            <div></div> <div><label><input type="checkbox" id="chkTop"> Cima</label></div> <div></div>
+            <div><label><input type="checkbox" id="chkLeft"> Esq</label></div> <div></div> <div><label><input type="checkbox" id="chkRight"> Dir</label></div>
+            <div></div> <div><label><input type="checkbox" id="chkBottom"> Baixo</label></div> <div></div>
+        </div>
+
+        <label><strong>Modificadores:</strong></label>
+        <div class="matrix-container">
+            <table class="matrix-table" id="matrixTable"></table>
+        </div>
+
+        <button class="tool-btn" id="btnEquipBrush">Equipar Pincel</button>
+    </div>
+
+    <div class="panel center-panel">
+        <div id="lblTool" class="header-info">Ferramenta Atual: Pincel<br><span style="font-size:12px; font-weight:normal; color:#333;">(Botão Esquerdo PINTA | Botão Direito ARRASTE para recortar)</span></div>
+        <div style="display: flex; gap: 10px; margin-bottom: 10px; justify-content: center;">
+            <button id="btnClear" style="background: #dc3545;">Limpar Folha</button>
+            <button id="btnSaveImage">Salvar Folha / Seleção</button>
+        </div>
+        
+        <div class="paper-container" id="paperContainer">
+            <canvas id="paperCanvas" width="1200" height="1500"></canvas>
+        </div>
+    </div>
+
+    <div class="panel right-panel" id="stampsPanel">
+        <h3>Carimbos</h3>
+        </div>
+
+<script>
+    // Configurações Base
+    const VALID_MODS = ["", "─", "│", "╱", "╲", "+", "<", ">", "#", "$", "&", "=", "÷", "□", "■", "●", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
+    const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+    const CELL_SIZE = 30;
+    
+    // Estado da Aplicação
+    let activeTool = "brush"; // "brush" ou index (0-3)
+    let stamps = [null, null, null, null];
+    let drawnGlyphs = []; // Array de grifos desenhados na folha
+    
+    // Elementos da UI
+    const previewCanvas = document.getElementById('previewCanvas');
+    const previewCtx = previewCanvas.getContext('2d');
+    const paperCanvas = document.getElementById('paperCanvas');
+    const paperCtx = paperCanvas.getContext('2d');
+    
+    // Preencher ComboBox de Letras
+    const coreCombo = document.getElementById('coreCombo');
+    ALPHABET.forEach(letter => {
+        let opt = document.createElement('option');
+        opt.value = letter;
+        opt.textContent = letter;
+        coreCombo.appendChild(opt);
+    });
+
+    // Eventos de Cor
+    const colorInput = document.getElementById('lineColor');
+    const btnColor = document.getElementById('btnColor');
+    btnColor.onclick = () => colorInput.click();
+    colorInput.oninput = (e) => {
+        let hex = e.target.value;
+        let rgb = hexToRgb(hex);
+        let luminance = rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114;
+        btnColor.style.backgroundColor = hex;
+        btnColor.style.color = luminance > 128 ? 'black' : 'white';
+        updatePreview();
+    };
+
+    function hexToRgb(hex) {
+        let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : {r:0,g:0,b:0};
+    }
+
+    // Geração de Matriz UI
+    const levelCombo = document.getElementById('levelCombo');
+    const matrixTable = document.getElementById('matrixTable');
+    
+    function updateMatrixUI() {
+        matrixTable.innerHTML = "";
+        let lvl = parseInt(levelCombo.value);
+        if (lvl === 1) {
+            updatePreview();
+            return;
+        }
+        
+        let size = (lvl * 2) - 1;
+        for (let r = 0; r < size; r++) {
+            let tr = document.createElement('tr');
+            for (let c = 0; c < size; c++) {
+                let td = document.createElement('td');
+                let select = document.createElement('select');
+                VALID_MODS.forEach(mod => {
+                    let opt = document.createElement('option');
+                    opt.value = mod; opt.textContent = mod;
+                    select.appendChild(opt);
+                });
+                
+                let isCenter = (r === Math.floor(size/2) && c === Math.floor(size/2));
+                if (isCenter) select.disabled = true;
+                
+                select.onchange = updatePreview;
+                td.appendChild(select);
+                tr.appendChild(td);
+            }
+            matrixTable.appendChild(tr);
+        }
+        updatePreview();
+    }
+
+    levelCombo.onchange = updateMatrixUI;
+    coreCombo.onchange = updatePreview;
+    ['chkTop', 'chkBottom', 'chkLeft', 'chkRight'].forEach(id => {
+        document.getElementById(id).onchange = updatePreview;
+    });
+
+    // Lógica do Grifo
+    class Glyph {
+        constructor(x, y, config) {
+            this.x = x;
+            this.y = y;
+            this.config = config;
+            
+            if (config.level === 1) this.radius = 35;
+            else if (config.level === 2) this.radius = 60;
+            else if (config.level === 3) this.radius = 90;
+            else this.radius = 120;
+        }
+        
+        draw(ctx) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            
+            // Círculo
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+            ctx.strokeStyle = this.config.color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Barras
+            ctx.strokeStyle = this.config.color;
+            ctx.lineWidth = 4;
+            let bLen = 15;
+            if (this.config.bars.top) { ctx.beginPath(); ctx.moveTo(0, -this.radius); ctx.lineTo(0, -this.radius + bLen); ctx.stroke(); }
+            if (this.config.bars.bottom) { ctx.beginPath(); ctx.moveTo(0, this.radius); ctx.lineTo(0, this.radius - bLen); ctx.stroke(); }
+            if (this.config.bars.left) { ctx.beginPath(); ctx.moveTo(-this.radius, 0); ctx.lineTo(-this.radius + bLen, 0); ctx.stroke(); }
+            if (this.config.bars.right) { ctx.beginPath(); ctx.moveTo(this.radius, 0); ctx.lineTo(this.radius - bLen, 0); ctx.stroke(); }
+            
+            // Matriz
+            ctx.fillStyle = this.config.color;
+            ctx.font = "bold 16px Courier";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            
+            if (this.config.level > 1) {
+                let size = (this.config.level * 2) - 1;
+                let startX = -(size * CELL_SIZE) / 2 + (CELL_SIZE / 2);
+                let startY = -(size * CELL_SIZE) / 2 + (CELL_SIZE / 2);
+                
+                for (let r = 0; r < size; r++) {
+                    for (let c = 0; c < size; c++) {
+                        let isCenter = (r === Math.floor(size/2) && c === Math.floor(size/2));
+                        if (!isCenter && this.config.matrix[r][c]) {
+                            ctx.fillText(this.config.matrix[r][c], startX + c * CELL_SIZE, startY + r * CELL_SIZE);
+                        }
+                    }
+                }
+            }
+            
+            // Núcleo
+            ctx.fillStyle = "#3232c8";
+            ctx.font = "bold 18px Courier";
+            ctx.fillText(this.config.core, 0, 0);
+            
+            ctx.restore();
+        }
+    }
+
+    function getCurrentConfig() {
+        let lvl = parseInt(levelCombo.value);
+        let config = {
+            level: lvl,
+            core: coreCombo.value,
+            color: colorInput.value,
+            bars: {
+                top: document.getElementById('chkTop').checked,
+                bottom: document.getElementById('chkBottom').checked,
+                left: document.getElementById('chkLeft').checked,
+                right: document.getElementById('chkRight').checked
+            },
+            matrix: []
+        };
+        
+        if (lvl > 1) {
+            let trs = matrixTable.querySelectorAll('tr');
+            trs.forEach(tr => {
+                let row = [];
+                tr.querySelectorAll('select').forEach(sel => row.push(sel.value));
+                config.matrix.push(row);
+            });
+        }
+        return config;
+    }
+
+    function getActiveConfig() {
+        if (activeTool === "brush") return getCurrentConfig();
+        let stamp = stamps[activeTool];
+        if (stamp) return stamp;
+        equipBrush();
+        return getCurrentConfig();
+    }
+
+    function updatePreview() {
+        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        let config = getCurrentConfig();
+        let glyph = new Glyph(previewCanvas.width / 2, previewCanvas.height / 2, config);
+        glyph.draw(previewCtx);
+    }
+
+    // Geração de UI dos Carimbos
+    const stampsPanel = document.getElementById('stampsPanel');
+    for (let i = 0; i < 4; i++) {
+        let div = document.createElement('div');
+        div.className = 'stamp-slot';
+        div.innerHTML = `
+            <div class="stamp-label" id="lblStamp${i}">Vazio (Slot ${i+1})</div>
+            <button class="tool-btn" style="background:#17a2b8;" onclick="saveToStamp(${i})">Salvar Pincel Aqui</button>
+            <button class="tool-btn" onclick="equipStamp(${i})">Equipar Carimbo</button>
+            <button class="tool-btn" style="background:#ffc107; color:black;" onclick="editStamp(${i})">Editar Carimbo</button>
+        `;
+        stampsPanel.appendChild(div);
+    }
+
+    function equipBrush() {
+        activeTool = "brush";
+        document.getElementById('lblTool').innerHTML = `Ferramenta Atual: Pincel<br><span style="font-size:12px; font-weight:normal; color:#333;">(Esquerdo Pinta | Direito Arrasta P/ Selecionar)</span>`;
+    }
+    document.getElementById('btnEquipBrush').onclick = equipBrush;
+
+    window.saveToStamp = function(idx) {
+        let config = getCurrentConfig();
+        stamps[idx] = config;
+        document.getElementById(`lblStamp${idx}`).innerText = `Salvo: Nív ${config.level}, Núcleo '${config.core}'`;
+    };
+
+    window.equipStamp = function(idx) {
+        if (stamps[idx]) {
+            activeTool = idx;
+            document.getElementById('lblTool').innerHTML = `Ferramenta Atual: Carimbo ${idx+1}<br><span style="font-size:12px; font-weight:normal; color:#333;">(Esquerdo Pinta | Direito Arrasta P/ Selecionar)</span>`;
+        }
+    };
+
+    window.editStamp = function(idx) {
+        let config = stamps[idx];
+        if (!config) return;
+        equipBrush();
+        
+        levelCombo.value = config.level;
+        coreCombo.value = config.core;
+        
+        colorInput.value = config.color;
+        let rgb = hexToRgb(config.color);
+        let luminance = rgb.r * 0.299 + rgb.g * 0.587 + rgb.b * 0.114;
+        btnColor.style.backgroundColor = config.color;
+        btnColor.style.color = luminance > 128 ? 'black' : 'white';
+
+        document.getElementById('chkTop').checked = config.bars.top;
+        document.getElementById('chkBottom').checked = config.bars.bottom;
+        document.getElementById('chkLeft').checked = config.bars.left;
+        document.getElementById('chkRight').checked = config.bars.right;
+        
+        updateMatrixUI(); // Recria a tabela
+        
+        if (config.level > 1) {
+            let trs = matrixTable.querySelectorAll('tr');
+            for (let r = 0; r < trs.length; r++) {
+                let selects = trs[r].querySelectorAll('select');
+                for (let c = 0; c < selects.length; c++) {
+                    selects[c].value = config.matrix[r][c];
+                }
+            }
+        }
+        updatePreview();
+    };
+
+    // Interação com a Folha Principal
+    let isSelecting = false;
+    let selStart = {x: 0, y: 0};
+    let selCurrent = {x: 0, y: 0};
+    
+    // Previne menu de contexto ao clicar com botão direito
+    paperCanvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    function getMousePos(canvas, evt) {
+        var rect = canvas.getBoundingClientRect();
+        return {
+            x: evt.clientX - rect.left,
+            y: evt.clientY - rect.top
+        };
+    }
+
+    function redrawPaper() {
+        paperCtx.clearRect(0, 0, paperCanvas.width, paperCanvas.height);
+        
+        // Fundo Branco (para imagem exportada)
+        paperCtx.fillStyle = "white";
+        paperCtx.fillRect(0, 0, paperCanvas.width, paperCanvas.height);
+
+        drawnGlyphs.forEach(g => g.draw(paperCtx));
+        
+        if (isSelecting) {
+            paperCtx.strokeStyle = "red";
+            paperCtx.lineWidth = 2;
+            paperCtx.setLineDash([5, 5]);
+            let x = Math.min(selStart.x, selCurrent.x);
+            let y = Math.min(selStart.y, selCurrent.y);
+            let w = Math.abs(selStart.x - selCurrent.x);
+            let h = Math.abs(selStart.y - selCurrent.y);
+            paperCtx.strokeRect(x, y, w, h);
+            paperCtx.setLineDash([]); // Reseta
+        }
+    }
+
+    paperCanvas.addEventListener('mousedown', e => {
+        const pos = getMousePos(paperCanvas, e);
+        if (e.button === 0) { // Botão Esquerdo
+            let config = getActiveConfig();
+            drawnGlyphs.push(new Glyph(pos.x, pos.y, config));
+            selStart = {x:0,y:0}; selCurrent = {x:0,y:0}; // Apaga seleção anterior
+            redrawPaper();
+        } else if (e.button === 2) { // Botão Direito
+            isSelecting = true;
+            selStart = pos;
+            selCurrent = pos;
+        }
+    });
+
+    paperCanvas.addEventListener('mousemove', e => {
+        if (isSelecting) {
+            selCurrent = getMousePos(paperCanvas, e);
+            redrawPaper();
+        }
+    });
+
+    window.addEventListener('mouseup', e => {
+        if (e.button === 2 && isSelecting) {
+            isSelecting = false;
+        }
+    });
+
+    document.getElementById('btnClear').onclick = () => {
+        drawnGlyphs = [];
+        selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
+        redrawPaper();
+    };
+
+    // Lógica de Salvar/Exportar
+    document.getElementById('btnSaveImage').onclick = () => {
+        if (drawnGlyphs.length === 0) return alert("A folha está vazia!");
+        
+        let cropX, cropY, cropW, cropH;
+        let w = Math.abs(selStart.x - selCurrent.x);
+        
+        if (w > 10) { // Tem seleção manual válida
+            cropX = Math.min(selStart.x, selCurrent.x);
+            cropY = Math.min(selStart.y, selCurrent.y);
+            cropW = w;
+            cropH = Math.abs(selStart.y - selCurrent.y);
+        } else { // Auto-crop baseado nos desenhos
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            drawnGlyphs.forEach(g => {
+                let r = g.radius + 20; // margem extra para as barras
+                if (g.x - r < minX) minX = g.x - r;
+                if (g.y - r < minY) minY = g.y - r;
+                if (g.x + r > maxX) maxX = g.x + r;
+                if (g.y + r > maxY) maxY = g.y + r;
+            });
+            cropX = Math.max(0, minX - 10);
+            cropY = Math.max(0, minY - 10);
+            cropW = Math.min(paperCanvas.width - cropX, (maxX - minX) + 20);
+            cropH = Math.min(paperCanvas.height - cropY, (maxY - minY) + 20);
+        }
+
+        // Esconde a linha vermelha de seleção antes de exportar
+        selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
+        redrawPaper(); 
+
+        // Cria um canvas temporário com o tamanho do crop
+        let tempCanvas = document.createElement('canvas');
+        tempCanvas.width = cropW;
+        tempCanvas.height = cropH;
+        let tCtx = tempCanvas.getContext('2d');
+        
+        // Pinta o fundo de branco e cola a área recortada
+        tCtx.fillStyle = "white";
+        tCtx.fillRect(0, 0, cropW, cropH);
+        tCtx.drawImage(paperCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+        // Faz o Download
+        let link = document.createElement('a');
+        link.download = 'grifo_magico.png';
+        link.href = tempCanvas.toDataURL('image/png');
+        link.click();
+    };
+
+    // Inicialização
+    updateMatrixUI();
+    redrawPaper();
+
+</script>
+</body>
+</html>
