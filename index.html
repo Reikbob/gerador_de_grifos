@@ -76,7 +76,7 @@
         </div>
 
         <div class="preview-box">
-            <canvas id="previewCanvas" width="220" height="220"></canvas>
+            <canvas id="previewCanvas" width="340" height="340"></canvas>
         </div>
 
         <input type="color" id="lineColor" value="#000000" style="display:none;">
@@ -361,8 +361,8 @@
             
             if (config.level === 1) this.radius = 35;
             else if (config.level === 2) this.radius = 60;
-            else if (config.level === 3) this.radius = 90;
-            else this.radius = 120;
+            else if (config.level === 3) this.radius = 105;
+            else this.radius = 150;
         }
         
         draw(ctx) {
