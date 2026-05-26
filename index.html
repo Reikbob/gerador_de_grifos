@@ -21,16 +21,32 @@
         
         .grid-layout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; text-align: center; align-items: center; }
         
-        .matrix-container { overflow-x: auto; background: #fafafa; padding: 10px; border: 1px solid #ddd; }
+        /* Estilos do Modal (Janela Flutuante) */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: none; /* Escondido por padrão */
+            justify-content: center; align-items: center;
+            z-index: 2000;
+        }
+        .modal-content {
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            text-align: center;
+            max-width: 95vw; max-height: 95vh; overflow-y: auto;
+        }
+        .matrix-container { background: #fafafa; padding: 15px; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 15px; }
         table.matrix-table { border-collapse: collapse; margin: 0 auto; }
-        table.matrix-table td { padding: 2px; }
-        table.matrix-table select { width: 45px; height: 30px; text-align: center; font-family: monospace; font-size: 14px; }
+        table.matrix-table td { padding: 4px; }
+        /* Caixas maiores para facilitar o clique */
+        table.matrix-table select { width: 55px; height: 35px; text-align: center; font-family: monospace; font-size: 16px; cursor: pointer; }
         
         button { padding: 8px 12px; cursor: pointer; border: none; border-radius: 4px; background: #007bff; color: white; font-weight: bold; }
         button:hover { background: #0056b3; }
         button.tool-btn { background: #28a745; margin-bottom: 5px; width: 100%;}
         button.tool-btn:hover { background: #218838; }
         button.color-btn { width: 100%; border: 1px solid #000; text-shadow: 1px 1px 2px rgba(255,255,255,0.5); }
+        button.modal-btn { background: #6c757d; font-size: 14px; }
         
         .stamp-slot { border: 1px solid #ccc; padding: 10px; border-radius: 4px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 5px; background: #f9f9f9; }
         .stamp-label { font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 5px; }
@@ -70,11 +86,9 @@
         </div>
 
         <label><strong>Modificadores:</strong></label>
-        <div class="matrix-container">
-            <table class="matrix-table" id="matrixTable"></table>
-        </div>
+        <button id="btnOpenMatrix" class="tool-btn modal-btn">Abrir Matriz de Modificadores</button>
 
-        <button class="tool-btn" id="btnEquipBrush">Equipar Pincel</button>
+        <button class="tool-btn" id="btnEquipBrush" style="margin-top: 15px;">Equipar Pincel</button>
     </div>
 
     <div class="panel center-panel">
@@ -93,6 +107,16 @@
         <h3>Carimbos</h3>
         </div>
 
+    <div id="matrixModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 style="border: none; font-size: 18px;">Editar Modificadores</h3>
+            <div class="matrix-container">
+                <table class="matrix-table" id="matrixTable"></table>
+            </div>
+            <button id="btnCloseMatrix" class="tool-btn">Confirmar e Fechar</button>
+        </div>
+    </div>
+
 <script>
     // Configurações Base
     const VALID_MODS = ["", "─", "│", "╱", "╲", "+", "<", ">", "#", "$", "&", "=", "÷", "□", "■", "●", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
@@ -100,9 +124,9 @@
     const CELL_SIZE = 30;
     
     // Estado da Aplicação
-    let activeTool = "brush"; // "brush" ou index (0-3)
+    let activeTool = "brush"; 
     let stamps = [null, null, null, null];
-    let drawnGlyphs = []; // Array de grifos desenhados na folha
+    let drawnGlyphs = []; 
     
     // Elementos da UI
     const previewCanvas = document.getElementById('previewCanvas');
@@ -118,6 +142,29 @@
         opt.textContent = letter;
         coreCombo.appendChild(opt);
     });
+
+    // Lógica do Modal (Janela Flutuante)
+    const modal = document.getElementById('matrixModal');
+    const btnOpenMatrix = document.getElementById('btnOpenMatrix');
+    const btnCloseMatrix = document.getElementById('btnCloseMatrix');
+
+    btnOpenMatrix.onclick = () => {
+        let lvl = parseInt(levelCombo.value);
+        if (lvl === 1) {
+            alert("O Nível 1 não possui modificadores extras. Apenas o núcleo central.");
+        } else {
+            modal.style.display = 'flex';
+        }
+    };
+    
+    btnCloseMatrix.onclick = () => modal.style.display = 'none';
+    
+    // Fechar ao clicar fora da janela branca
+    window.onclick = function(event) {
+        if (event.target == modal) {
+            modal.style.display = "none";
+        }
+    }
 
     // Eventos de Cor
     const colorInput = document.getElementById('lineColor');
@@ -196,14 +243,12 @@
             ctx.save();
             ctx.translate(this.x, this.y);
             
-            // Círculo
             ctx.beginPath();
             ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
             ctx.strokeStyle = this.config.color;
             ctx.lineWidth = 2;
             ctx.stroke();
             
-            // Barras
             ctx.strokeStyle = this.config.color;
             ctx.lineWidth = 4;
             let bLen = 15;
@@ -212,7 +257,6 @@
             if (this.config.bars.left) { ctx.beginPath(); ctx.moveTo(-this.radius, 0); ctx.lineTo(-this.radius + bLen, 0); ctx.stroke(); }
             if (this.config.bars.right) { ctx.beginPath(); ctx.moveTo(this.radius, 0); ctx.lineTo(this.radius - bLen, 0); ctx.stroke(); }
             
-            // Matriz
             ctx.fillStyle = this.config.color;
             ctx.font = "bold 16px Courier";
             ctx.textAlign = "center";
@@ -233,7 +277,6 @@
                 }
             }
             
-            // Núcleo
             ctx.fillStyle = "#3232c8";
             ctx.font = "bold 18px Courier";
             ctx.fillText(this.config.core, 0, 0);
@@ -335,7 +378,7 @@
         document.getElementById('chkLeft').checked = config.bars.left;
         document.getElementById('chkRight').checked = config.bars.right;
         
-        updateMatrixUI(); // Recria a tabela
+        updateMatrixUI();
         
         if (config.level > 1) {
             let trs = matrixTable.querySelectorAll('tr');
@@ -347,6 +390,7 @@
             }
         }
         updatePreview();
+        modal.style.display = 'flex'; // Abre a matriz para mostrar que entrou no modo edição
     };
 
     // Interação com a Folha Principal
@@ -354,7 +398,6 @@
     let selStart = {x: 0, y: 0};
     let selCurrent = {x: 0, y: 0};
     
-    // Previne menu de contexto ao clicar com botão direito
     paperCanvas.addEventListener('contextmenu', e => e.preventDefault());
 
     function getMousePos(canvas, evt) {
@@ -368,7 +411,6 @@
     function redrawPaper() {
         paperCtx.clearRect(0, 0, paperCanvas.width, paperCanvas.height);
         
-        // Fundo Branco (para imagem exportada)
         paperCtx.fillStyle = "white";
         paperCtx.fillRect(0, 0, paperCanvas.width, paperCanvas.height);
 
@@ -383,18 +425,18 @@
             let w = Math.abs(selStart.x - selCurrent.x);
             let h = Math.abs(selStart.y - selCurrent.y);
             paperCtx.strokeRect(x, y, w, h);
-            paperCtx.setLineDash([]); // Reseta
+            paperCtx.setLineDash([]); 
         }
     }
 
     paperCanvas.addEventListener('mousedown', e => {
         const pos = getMousePos(paperCanvas, e);
-        if (e.button === 0) { // Botão Esquerdo
+        if (e.button === 0) { 
             let config = getActiveConfig();
             drawnGlyphs.push(new Glyph(pos.x, pos.y, config));
-            selStart = {x:0,y:0}; selCurrent = {x:0,y:0}; // Apaga seleção anterior
+            selStart = {x:0,y:0}; selCurrent = {x:0,y:0}; 
             redrawPaper();
-        } else if (e.button === 2) { // Botão Direito
+        } else if (e.button === 2) { 
             isSelecting = true;
             selStart = pos;
             selCurrent = pos;
@@ -420,22 +462,21 @@
         redrawPaper();
     };
 
-    // Lógica de Salvar/Exportar
     document.getElementById('btnSaveImage').onclick = () => {
         if (drawnGlyphs.length === 0) return alert("A folha está vazia!");
         
         let cropX, cropY, cropW, cropH;
         let w = Math.abs(selStart.x - selCurrent.x);
         
-        if (w > 10) { // Tem seleção manual válida
+        if (w > 10) { 
             cropX = Math.min(selStart.x, selCurrent.x);
             cropY = Math.min(selStart.y, selCurrent.y);
             cropW = w;
             cropH = Math.abs(selStart.y - selCurrent.y);
-        } else { // Auto-crop baseado nos desenhos
+        } else { 
             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
             drawnGlyphs.forEach(g => {
-                let r = g.radius + 20; // margem extra para as barras
+                let r = g.radius + 20; 
                 if (g.x - r < minX) minX = g.x - r;
                 if (g.y - r < minY) minY = g.y - r;
                 if (g.x + r > maxX) maxX = g.x + r;
@@ -447,22 +488,18 @@
             cropH = Math.min(paperCanvas.height - cropY, (maxY - minY) + 20);
         }
 
-        // Esconde a linha vermelha de seleção antes de exportar
         selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
         redrawPaper(); 
 
-        // Cria um canvas temporário com o tamanho do crop
         let tempCanvas = document.createElement('canvas');
         tempCanvas.width = cropW;
         tempCanvas.height = cropH;
         let tCtx = tempCanvas.getContext('2d');
         
-        // Pinta o fundo de branco e cola a área recortada
         tCtx.fillStyle = "white";
         tCtx.fillRect(0, 0, cropW, cropH);
         tCtx.drawImage(paperCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
 
-        // Faz o Download
         let link = document.createElement('a');
         link.download = 'grifo_magico.png';
         link.href = tempCanvas.toDataURL('image/png');
