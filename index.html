@@ -76,7 +76,7 @@
         </div>
 
         <div class="preview-box">
-            <canvas id="previewCanvas" width="340" height="340"></canvas>
+            <canvas id="previewCanvas" width="340" height="340" style="max-width: 100%; height: auto;"></canvas>
         </div>
 
         <input type="color" id="lineColor" value="#000000" style="display:none;">
@@ -103,11 +103,15 @@
         <label><strong>Modificadores:</strong></label>
         <button id="btnOpenMatrix" class="tool-btn modal-btn">Abrir Matriz de Modificadores</button>
 
-        <button class="tool-btn" id="btnEquipBrush" style="margin-top: 15px;">Equipar Pincel</button>
+        <hr style="width: 100%; border: 1px solid #ddd; margin: 5px 0;">
+        
+        <button id="btnAlignMode" class="tool-btn" style="background-color: #6f42c1;">Modo Alinhamento: OFF</button>
+        
+        <button class="tool-btn" id="btnEquipBrush">Equipar Pincel</button>
     </div>
 
     <div class="panel center-panel">
-        <div id="lblTool" class="header-info">Ferramenta Atual: Pincel<br><span style="font-size:12px; font-weight:normal; color:#333;">(Botão Esquerdo PINTA | Botão Direito ARRASTE para recortar)</span></div>
+        <div id="lblTool" class="header-info">Ferramenta Atual: Pincel<br><span style="font-size:12px; font-weight:normal; color:#333;" id="lblInstrucoes">(Botão Esquerdo PINTA | Botão Direito ARRASTE para recortar)</span></div>
         <div style="display: flex; gap: 10px; margin-bottom: 10px; justify-content: center;">
             <button id="btnClear" style="background: #dc3545;">Limpar Folha</button>
             <button id="btnSaveImage">Salvar Folha / Seleção</button>
@@ -143,12 +147,21 @@
     let stamps = [null, null, null, null];
     let drawnGlyphs = []; 
     
+    // Estado do Alinhamento
+    let alignMode = false;
+    let alignSource = null; // O grifo selecionado como centro
+    let hoveredGlyph = null; // Grifo com o mouse em cima para selecionar
+    let currentMousePos = {x: 0, y: 0};
+    let snappedPos = null;
+    
     // Elementos da UI
     const previewCanvas = document.getElementById('previewCanvas');
     const previewCtx = previewCanvas.getContext('2d');
     const paperCanvas = document.getElementById('paperCanvas');
     const paperCtx = paperCanvas.getContext('2d');
     const codeInput = document.getElementById('glyphCodeInput');
+    const btnAlignMode = document.getElementById('btnAlignMode');
+    const lblInstrucoes = document.getElementById('lblInstrucoes');
     
     // Preencher ComboBox de Letras
     const coreCombo = document.getElementById('coreCombo');
@@ -158,6 +171,32 @@
         opt.textContent = letter;
         coreCombo.appendChild(opt);
     });
+
+    // Toggle Modo Alinhamento
+    btnAlignMode.onclick = () => {
+        alignMode = !alignMode;
+        if (alignMode) {
+            btnAlignMode.style.backgroundColor = "#28a745"; // Verde
+            btnAlignMode.innerText = "Modo Alinhamento: ON";
+            updateInstrucoes();
+        } else {
+            btnAlignMode.style.backgroundColor = "#6f42c1"; // Roxo
+            btnAlignMode.innerText = "Modo Alinhamento: OFF";
+            alignSource = null; // Limpa a ancora se desligar
+            updateInstrucoes();
+            redrawPaper();
+        }
+    };
+
+    function updateInstrucoes() {
+        if (!alignMode) {
+            lblInstrucoes.innerText = "(Botão Esq PINTA | Botão Dir ARRASTA p/ recortar)";
+        } else if (alignMode && !alignSource) {
+            lblInstrucoes.innerHTML = "<span style='color: #dc3545;'>Clique em um grifo existente para ser a Âncora Central</span>";
+        } else if (alignMode && alignSource) {
+            lblInstrucoes.innerHTML = "<span style='color: #28a745;'>Esquerdo: Carimba alinhado | Direito: Solta a Âncora</span>";
+        }
+    }
 
     // Lógica do Modal (Janela Flutuante)
     const modal = document.getElementById('matrixModal');
@@ -175,7 +214,7 @@
     
     btnCloseMatrix.onclick = () => {
         modal.style.display = 'none';
-        updatePreview(); // Atualiza código e preview ao fechar
+        updatePreview();
     };
     
     window.onclick = function(event) {
@@ -253,7 +292,7 @@
         document.getElementById(id).onchange = updatePreview;
     });
 
-    // SISTEMA DE ENCODE (Configuração -> String ID)
+    // SISTEMA DE ENCODE
     function configToCode(config) {
         let lvlStr = String(config.level).padStart(2, '0');
         let coreStr = String(ALPHABET.indexOf(config.core) + 1).padStart(2, '0');
@@ -273,7 +312,7 @@
             for (let row = 0; row < size; row++) {
                 for (let col = 0; col < size; col++) {
                     let isCenter = (row === Math.floor(size/2) && col === Math.floor(size/2));
-                    if (!isCenter) { // Pulamos o centro matemático para economizar espaço
+                    if (!isCenter) { 
                         let val = config.matrix[row][col];
                         let idx = VALID_MODS.indexOf(val);
                         if(idx === -1) idx = 0;
@@ -285,40 +324,34 @@
         return lvlStr + coreStr + barsStr + colorStr + matrixStr;
     }
 
-    // SISTEMA DE DECODE (String ID -> Configuração)
+    // SISTEMA DE DECODE
     document.getElementById('btnLoadCode').onclick = () => {
         let code = codeInput.value.trim();
         if(code.length < 17) return alert("Código inválido ou muito curto!");
         
         try {
-            // Nível
             let lvl = parseInt(code.substring(0, 2));
             if(lvl < 1 || lvl > 4) throw "Nível inválido";
             levelCombo.value = lvl;
             
-            // Núcleo
             let coreIdx = parseInt(code.substring(2, 4)) - 1;
             if(coreIdx >= 0 && coreIdx < ALPHABET.length) coreCombo.value = ALPHABET[coreIdx];
             
-            // Barras
             document.getElementById('chkTop').checked = code[4] === '1';
             document.getElementById('chkBottom').checked = code[5] === '1';
             document.getElementById('chkLeft').checked = code[6] === '1';
             document.getElementById('chkRight').checked = code[7] === '1';
             
-            // Cor
             let r = parseInt(code.substring(8, 11));
             let g = parseInt(code.substring(11, 14));
             let b = parseInt(code.substring(14, 17));
             applyColorStyle(rgbToHex(r, g, b));
             
-            // Remonta a interface da matriz baseada no nível escolhido
             updateMatrixUI();
             
-            // Modificadores
             if (lvl > 1) {
                 let size = (lvl * 2) - 1;
-                let ptr = 17; // Modificadores começam no digito 17
+                let ptr = 17; 
                 let trs = matrixTable.querySelectorAll('tr');
                 
                 for (let row = 0; row < size; row++) {
@@ -342,11 +375,9 @@
         }
     };
 
-    // Botão de Copiar
     document.getElementById('btnCopyCode').onclick = () => {
         codeInput.select();
         document.execCommand('copy');
-        
         let btn = document.getElementById('btnCopyCode');
         btn.innerText = "Copiado!";
         setTimeout(() => btn.innerText = "Copiar", 1500);
@@ -449,11 +480,12 @@
         previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
         let config = getCurrentConfig();
         
-        // Atualiza a String ID sempre que a interface muda
         codeInput.value = configToCode(config);
         
         let glyph = new Glyph(previewCanvas.width / 2, previewCanvas.height / 2, config);
         glyph.draw(previewCtx);
+        
+        redrawPaper(); // Atualiza o fantasma se o mouse estiver na tela
     }
 
     // Geração de UI dos Carimbos
@@ -472,7 +504,8 @@
 
     function equipBrush() {
         activeTool = "brush";
-        document.getElementById('lblTool').innerHTML = `Ferramenta Atual: Pincel<br><span style="font-size:12px; font-weight:normal; color:#333;">(Esquerdo Pinta | Direito Arrasta P/ Selecionar)</span>`;
+        document.getElementById('lblTool').innerHTML = `Ferramenta Atual: Pincel<br><span style="font-size:12px; font-weight:normal; color:#333;" id="lblInstrucoes"></span>`;
+        updateInstrucoes();
     }
     document.getElementById('btnEquipBrush').onclick = equipBrush;
 
@@ -482,13 +515,14 @@
         let idStr = configToCode(config);
         let lbl = document.getElementById(`lblStamp${idx}`);
         lbl.innerText = `Nív ${config.level} | ${idStr.substring(0, 15)}...`;
-        lbl.title = "ID Completo: " + idStr; // Deixa ver o id no hover do mouse
+        lbl.title = "ID Completo: " + idStr; 
     };
 
     window.equipStamp = function(idx) {
         if (stamps[idx]) {
             activeTool = idx;
-            document.getElementById('lblTool').innerHTML = `Ferramenta Atual: Carimbo ${idx+1}<br><span style="font-size:12px; font-weight:normal; color:#333;">(Esquerdo Pinta | Direito Arrasta P/ Selecionar)</span>`;
+            document.getElementById('lblTool').innerHTML = `Ferramenta Atual: Carimbo ${idx+1}<br><span style="font-size:12px; font-weight:normal; color:#333;" id="lblInstrucoes"></span>`;
+            updateInstrucoes();
         }
     };
 
@@ -522,7 +556,7 @@
         modal.style.display = 'flex'; 
     };
 
-    // Interação com a Folha Principal
+    // INTERAÇÃO COM A FOLHA PRINCIPAL & ALINHAMENTO
     let isSelecting = false;
     let selStart = {x: 0, y: 0};
     let selCurrent = {x: 0, y: 0};
@@ -537,14 +571,76 @@
         };
     }
 
-    function redrawPaper() {
+    function getSnappedPos(source, rawPos) {
+        let dx = rawPos.x - source.x;
+        let dy = rawPos.y - source.y;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        let angle = Math.atan2(dy, dx);
+        
+        // Arredonda para o multiplo mais próximo de 45 graus (PI/4)
+        let snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+        
+        return {
+            x: source.x + dist * Math.cos(snapAngle),
+            y: source.y + dist * Math.sin(snapAngle)
+        };
+    }
+
+    function redrawPaper(isExporting = false) {
         paperCtx.clearRect(0, 0, paperCanvas.width, paperCanvas.height);
         
         paperCtx.fillStyle = "white";
         paperCtx.fillRect(0, 0, paperCanvas.width, paperCanvas.height);
 
+        // 1. Desenha os grifos definitivos
         drawnGlyphs.forEach(g => g.draw(paperCtx));
         
+        if (isExporting) return; // Se for exportar imagem, para por aqui (não desenha linhas guias nem seleções)
+        
+        // 2. Se modo alinhamento estiver ON, desenha as linhas guia ou a aura vermelha
+        if (alignMode) {
+            if (!alignSource && hoveredGlyph) {
+                // Aura vermelha de seleção de âncora
+                paperCtx.beginPath();
+                paperCtx.arc(hoveredGlyph.x, hoveredGlyph.y, hoveredGlyph.radius + 15, 0, Math.PI*2);
+                paperCtx.strokeStyle = "rgba(220, 53, 69, 0.8)";
+                paperCtx.lineWidth = 3;
+                paperCtx.setLineDash([5,5]);
+                paperCtx.stroke();
+                paperCtx.setLineDash([]);
+            } 
+            else if (alignSource) {
+                // Desenha os eixos a partir da fonte
+                paperCtx.save();
+                paperCtx.strokeStyle = "rgba(100, 100, 255, 0.3)";
+                paperCtx.setLineDash([5, 5]);
+                paperCtx.beginPath();
+                for(let i=0; i<8; i++) {
+                    let angle = i * Math.PI / 4;
+                    paperCtx.moveTo(alignSource.x, alignSource.y);
+                    paperCtx.lineTo(alignSource.x + 2000 * Math.cos(angle), alignSource.y + 2000 * Math.sin(angle));
+                }
+                paperCtx.stroke();
+                paperCtx.restore();
+                
+                // Desenha o Fantasma do Pincel na posição grudada
+                if (snappedPos) {
+                    paperCtx.globalAlpha = 0.4; // Transparência para o fantasma
+                    let ghostConfig = getActiveConfig();
+                    let ghost = new Glyph(snappedPos.x, snappedPos.y, ghostConfig);
+                    ghost.draw(paperCtx);
+                    paperCtx.globalAlpha = 1.0;
+                    
+                    // Bolinha vermelha marcando o centro do encaixe
+                    paperCtx.fillStyle = "red";
+                    paperCtx.beginPath();
+                    paperCtx.arc(snappedPos.x, snappedPos.y, 4, 0, Math.PI*2);
+                    paperCtx.fill();
+                }
+            }
+        }
+
+        // 3. Desenha a caixa de seleção de recorte (se existir)
         if (isSelecting) {
             paperCtx.strokeStyle = "red";
             paperCtx.lineWidth = 2;
@@ -560,23 +656,74 @@
 
     paperCanvas.addEventListener('mousedown', e => {
         const pos = getMousePos(paperCanvas, e);
-        if (e.button === 0) { 
-            let config = getActiveConfig();
-            drawnGlyphs.push(new Glyph(pos.x, pos.y, config));
-            selStart = {x:0,y:0}; selCurrent = {x:0,y:0}; 
+        
+        if (e.button === 0) { // BOTÃO ESQUERDO
+            if (alignMode) {
+                if (!alignSource && hoveredGlyph) {
+                    // Fixou a âncora!
+                    alignSource = hoveredGlyph;
+                    updateInstrucoes();
+                } else if (alignSource && snappedPos) {
+                    // Carimbou no eixo!
+                    let config = getActiveConfig();
+                    drawnGlyphs.push(new Glyph(snappedPos.x, snappedPos.y, config));
+                }
+            } else {
+                // Desenho Normal Livre
+                let config = getActiveConfig();
+                drawnGlyphs.push(new Glyph(pos.x, pos.y, config));
+                selStart = {x:0,y:0}; selCurrent = {x:0,y:0}; 
+            }
             redrawPaper();
-        } else if (e.button === 2) { 
-            isSelecting = true;
-            selStart = pos;
-            selCurrent = pos;
+            
+        } else if (e.button === 2) { // BOTÃO DIREITO
+            if (alignMode && alignSource) {
+                // Desfaz a âncora em vez de iniciar seleção de recorte
+                alignSource = null;
+                updateInstrucoes();
+                redrawPaper();
+            } else {
+                // Inicia Seleção de Recorte Manual
+                isSelecting = true;
+                selStart = pos;
+                selCurrent = pos;
+            }
         }
     });
 
     paperCanvas.addEventListener('mousemove', e => {
+        currentMousePos = getMousePos(paperCanvas, e);
+        
         if (isSelecting) {
-            selCurrent = getMousePos(paperCanvas, e);
-            redrawPaper();
+            selCurrent = currentMousePos;
         }
+        
+        if (alignMode) {
+            if (!alignSource) {
+                // Procura se tem algum grifo perto do mouse para selecionar como âncora
+                hoveredGlyph = null;
+                for (let g of drawnGlyphs) {
+                    let dx = currentMousePos.x - g.x;
+                    let dy = currentMousePos.y - g.y;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < g.radius) {
+                        hoveredGlyph = g;
+                        break;
+                    }
+                }
+            } else {
+                // Calcula a posição "grudada" na linha
+                snappedPos = getSnappedPos(alignSource, currentMousePos);
+            }
+        }
+        
+        redrawPaper();
+    });
+
+    // Quando tira o mouse do canvas, esconde o fantasma
+    paperCanvas.addEventListener('mouseleave', () => {
+        snappedPos = null;
+        redrawPaper();
     });
 
     window.addEventListener('mouseup', e => {
@@ -587,6 +734,8 @@
 
     document.getElementById('btnClear').onclick = () => {
         drawnGlyphs = [];
+        alignSource = null;
+        updateInstrucoes();
         selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
         redrawPaper();
     };
@@ -618,7 +767,9 @@
         }
 
         selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
-        redrawPaper(); 
+        
+        // Passa 'true' para o redrawPaper esconder as linhas azuis de guia antes da foto
+        redrawPaper(true); 
 
         let tempCanvas = document.createElement('canvas');
         tempCanvas.width = cropW;
@@ -630,9 +781,11 @@
         tCtx.drawImage(paperCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
 
         let link = document.createElement('a');
-        link.download = 'grifo_magico.png';
+        link.download = 'circuito_magico.png';
         link.href = tempCanvas.toDataURL('image/png');
         link.click();
+        
+        redrawPaper(false); // Devolve as linhas
     };
 
     // Inicialização
