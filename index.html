@@ -1019,6 +1019,7 @@
         
         let bounds = getExportBounds();
         
+        // Cabeçalho SVG
         let svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${bounds.w} ${bounds.h}" width="${bounds.w}" height="${bounds.h}">\n`;
         
         drawnGlyphs.forEach(g => {
@@ -1029,14 +1030,17 @@
             
             svgStr += `  <g transform="translate(${cx}, ${cy})">\n`;
             
+            // Círculo principal
             svgStr += `    <circle cx="0" cy="0" r="${r}" stroke="${color}" stroke-width="2" fill="none" />\n`;
             
+            // Barras
             let bLen = 15;
             if (g.config.bars.top) svgStr += `    <line x1="0" y1="${-r}" x2="0" y2="${-r + bLen}" stroke="${color}" stroke-width="4" stroke-linecap="square"/>\n`;
             if (g.config.bars.bottom) svgStr += `    <line x1="0" y1="${r}" x2="0" y2="${r - bLen}" stroke="${color}" stroke-width="4" stroke-linecap="square"/>\n`;
             if (g.config.bars.left) svgStr += `    <line x1="${-r}" y1="0" x2="${-r + bLen}" y2="0" stroke="${color}" stroke-width="4" stroke-linecap="square"/>\n`;
             if (g.config.bars.right) svgStr += `    <line x1="${r}" y1="0" x2="${r - bLen}" y2="0" stroke="${color}" stroke-width="4" stroke-linecap="square"/>\n`;
             
+            // Modificadores da Matriz
             if (g.config.level > 1) {
                 let size = (g.config.level * 2) - 1;
                 let startX = -(size * CELL_SIZE) / 2 + (CELL_SIZE / 2);
@@ -1045,15 +1049,21 @@
                 for (let row = 0; row < size; row++) {
                     for (let col = 0; col < size; col++) {
                         let isCenter = (row === Math.floor(size/2) && col === Math.floor(size/2));
-                        if (!isCenter && g.config.matrix[row][col]) {
+                        let char = g.config.matrix[row][col];
+                        
+                        // Só desenha se não for o centro e se o char não estiver vazio
+                        if (!isCenter && char && char.trim() !== "") {
                             let tx = startX + col * CELL_SIZE;
                             let ty = startY + row * CELL_SIZE;
-                            svgStr += `    <text x="${tx}" y="${ty}" fill="${color}" font-family="Courier, monospace" font-weight="bold" font-size="16px" text-anchor="middle" dy="0.35em">${g.config.matrix[row][col]}</text>\n`;
+                            
+                            // Escapamos o caractere para evitar erros de XML
+                            svgStr += `    <text x="${tx}" y="${ty}" fill="${color}" font-family="Courier, monospace" font-weight="bold" font-size="16px" text-anchor="middle" dy="0.35em">${char}</text>\n`;
                         }
                     }
                 }
             }
             
+            // Núcleo
             svgStr += `    <text x="0" y="0" fill="#3232c8" font-family="Courier, monospace" font-weight="bold" font-size="18px" text-anchor="middle" dy="0.35em">${g.config.core}</text>\n`;
             
             svgStr += `  </g>\n`;
@@ -1061,6 +1071,7 @@
         
         svgStr += `</svg>`;
         
+        // Download
         let blob = new Blob([svgStr], {type: "image/svg+xml;charset=utf-8"});
         let url = URL.createObjectURL(blob);
         let link = document.createElement('a');
@@ -1069,6 +1080,7 @@
         link.click();
         URL.revokeObjectURL(url);
         
+        // Reset da seleção
         selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
         hasSelectionBox = false; 
         redrawPaper(false, false);
