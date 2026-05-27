@@ -64,6 +64,7 @@
 </head>
 <body>
 
+    <!-- PAINEL ESQUERDO: PINCEL -->
     <div class="panel left-panel">
         
         <div class="id-container">
@@ -103,6 +104,7 @@
         <label><strong>Modificadores:</strong></label>
         <button id="btnOpenMatrix" class="tool-btn modal-btn">Abrir Matriz de Modificadores</button>
         
+        <!-- O BOTÃO DO CAOS -->
         <button id="btnChaos" class="tool-btn" style="background-color: #fd7e14; color: black; border: 1px solid #d39e00; margin-top: 5px;">🎲 Gerar Grifo Aleatório (Caos)</button>
 
         <hr style="width: 100%; border: 1px solid #ddd; margin: 5px 0;">
@@ -111,11 +113,13 @@
         <button class="tool-btn" id="btnEquipBrush">Equipar Pincel</button>
     </div>
 
+    <!-- PAINEL CENTRAL: FOLHA -->
     <div class="panel center-panel">
         <div id="lblTool" class="header-info">Ferramenta Atual: Pincel<br><span style="font-size:12px; font-weight:normal; color:#333;" id="lblInstrucoes">(Botão Esquerdo PINTA | Botão Direito ARRASTE para recortar)</span></div>
         <div style="display: flex; gap: 10px; margin-bottom: 10px; justify-content: center;">
             <button id="btnClear" style="background: #dc3545;">Limpar Folha</button>
-            <button id="btnSaveImage">Salvar Folha / Seleção</button>
+            <button id="btnSaveImage">Salvar (C/ Fundo)</button>
+            <button id="btnSaveTransparent" style="background: #17a2b8;">Salvar (Sem Fundo)</button>
         </div>
         
         <div class="paper-container" id="paperContainer">
@@ -123,10 +127,12 @@
         </div>
     </div>
 
+    <!-- PAINEL DIREITO: CARIMBOS -->
     <div class="panel right-panel" id="stampsPanel">
         <h3>Carimbos (Slots Rápidos)</h3>
     </div>
 
+    <!-- JANELA FLUTUANTE DA MATRIZ -->
     <div id="matrixModal" class="modal-overlay">
         <div class="modal-content">
             <h3 style="border: none; font-size: 18px;">Editar Modificadores</h3>
@@ -175,23 +181,19 @@
 
     // Função de Gerador Aleatório (Botão do Caos)
     document.getElementById('btnChaos').onclick = () => {
-        // Seleciona um núcleo aleatório
         let randomCoreIdx = Math.floor(Math.random() * ALPHABET.length);
         coreCombo.value = ALPHABET[randomCoreIdx];
         
-        // Sorteia as direções
         document.getElementById('chkTop').checked = Math.random() > 0.5;
         document.getElementById('chkBottom').checked = Math.random() > 0.5;
         document.getElementById('chkLeft').checked = Math.random() > 0.5;
         document.getElementById('chkRight').checked = Math.random() > 0.5;
         
-        // Gera uma cor aleatória legível (RGB de 0 a 180 para não ficar muito claro)
         let r = Math.floor(Math.random() * 180);
         let g = Math.floor(Math.random() * 180);
         let b = Math.floor(Math.random() * 180);
         applyColorStyle(rgbToHex(r, g, b));
         
-        // Sorteia a matriz (se houver)
         let lvl = parseInt(levelCombo.value);
         if (lvl > 1) {
             let size = (lvl * 2) - 1;
@@ -201,7 +203,6 @@
                 for (let col = 0; col < size; col++) {
                     let isCenter = (row === Math.floor(size/2) && col === Math.floor(size/2));
                     if (!isCenter) {
-                        // 50% de chance de ficar vazio para o grifo não virar um borrão
                         if (Math.random() > 0.5) {
                             let randomModIdx = Math.floor(Math.random() * (VALID_MODS.length - 1)) + 1; 
                             selects[col].value = VALID_MODS[randomModIdx];
@@ -214,7 +215,7 @@
         }
         
         updatePreview();
-        equipBrush(); // Garante que você voltará para o pincel caso estivesse com um carimbo salvo
+        equipBrush(); 
     };
 
     // Toggle Modo Alinhamento
@@ -631,11 +632,14 @@
         };
     }
 
-    function redrawPaper(isExporting = false) {
+    // A função de renderização agora sabe se é pra desenhar fundo branco ou não
+    function redrawPaper(isExporting = false, isTransparent = false) {
         paperCtx.clearRect(0, 0, paperCanvas.width, paperCanvas.height);
         
-        paperCtx.fillStyle = "white";
-        paperCtx.fillRect(0, 0, paperCanvas.width, paperCanvas.height);
+        if (!isTransparent) {
+            paperCtx.fillStyle = "white";
+            paperCtx.fillRect(0, 0, paperCanvas.width, paperCanvas.height);
+        }
 
         drawnGlyphs.forEach(g => g.draw(paperCtx));
         
@@ -775,7 +779,8 @@
         redrawPaper();
     };
 
-    document.getElementById('btnSaveImage').onclick = () => {
+    // Nova função unificada de exportação
+    function exportImage(isTransparent) {
         if (drawnGlyphs.length === 0) return alert("A folha está vazia!");
         
         let cropX, cropY, cropW, cropH;
@@ -804,27 +809,37 @@
         selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
         hasSelectionBox = false; 
         
-        redrawPaper(true); 
+        // Passa a variável de transparência para a renderização da "foto"
+        redrawPaper(true, isTransparent); 
 
         let tempCanvas = document.createElement('canvas');
         tempCanvas.width = cropW;
         tempCanvas.height = cropH;
         let tCtx = tempCanvas.getContext('2d');
         
-        tCtx.fillStyle = "white";
-        tCtx.fillRect(0, 0, cropW, cropH);
+        if (!isTransparent) {
+            tCtx.fillStyle = "white";
+            tCtx.fillRect(0, 0, cropW, cropH);
+        }
+        
         tCtx.drawImage(paperCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
 
         let link = document.createElement('a');
-        link.download = 'circuito_magico.png';
+        link.download = isTransparent ? 'circuito_magico_transparente.png' : 'circuito_magico.png';
         link.href = tempCanvas.toDataURL('image/png');
         link.click();
         
-        redrawPaper(false); 
-    };
+        // Retorna a tela ao normal (com fundo branco para poder enxergar)
+        redrawPaper(false, false); 
+    }
+
+    document.getElementById('btnSaveImage').onclick = () => exportImage(false);
+    document.getElementById('btnSaveTransparent').onclick = () => exportImage(true);
 
     // Inicialização
     updateMatrixUI();
     redrawPaper();
 
 </script>
+</body>
+</html>
