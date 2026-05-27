@@ -80,10 +80,16 @@
     <div id="secretPanel">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <h2 style="margin: 0;">TERMINAL ADM - DECODIFICADOR DE GRIFOS</h2>
-            <button onclick="document.getElementById('secretPanel').style.display='none'" style="background: #f00; color: #fff;">X FECHAR</button>
+            <button onclick="document.getElementById('secretPanel').style.display='none'" style="background: #f00; color: #fff; padding: 5px 15px; font-weight: bold; border: none; cursor: pointer;">X FECHAR</button>
         </div>
         <p style="margin: 15px 0;">ID Capturado: <span id="admCurrentId" style="background: #222; padding: 2px 5px;"></span></p>
-        <button id="btnRunCode" style="background: #0f0; color: #000; font-weight: bold; width: 200px;">RODAR ANÁLISE</button>
+        
+        <div style="display: flex; gap: 10px;">
+            <button id="btnRunCode" style="background: #0f0; color: #000; font-weight: bold; padding: 10px 20px; border: none; cursor: pointer;">RODAR ANÁLISE</button>
+            
+            <button id="btnSaveSVG" style="background: #20c997; color: black; font-weight: bold; padding: 10px 20px; border: none; cursor: pointer;">EXPORTAR SVG (3D)</button>
+        </div>
+
         <div id="terminalOutput">Aguardando execução...</div>
     </div>
 
@@ -140,8 +146,7 @@
             <button id="btnClear" style="background: #dc3545;">Limpar Folha</button>
             <button id="btnSaveImage">Salvar (C/ Fundo)</button>
             <button id="btnSaveTransparent" style="background: #17a2b8;">Salvar (Sem Fundo)</button>
-            <button id="btnSaveSVG" style="background: #20c997; color: black; border: 1px solid #1aa179;">Salvar (SVG para 3D)</button>
-        </div>
+            </div>
         
         <div class="paper-container" id="paperContainer">
             <canvas id="paperCanvas" width="1200" height="1500"></canvas>
@@ -199,10 +204,9 @@
     });
 
     // ------------------------------------------------------------------
-    // SISTEMA DO TERMINAL ADM (Tradução do C)
+    // SISTEMA DO TERMINAL ADM
     // ------------------------------------------------------------------
     
-    // Gatilho: Ctrl + Shift + Y
     document.addEventListener('keydown', function(event) {
         if (event.ctrlKey && event.shiftKey && event.key.toUpperCase() === 'Y') {
             const panel = document.getElementById('secretPanel');
@@ -230,9 +234,10 @@
 
     function obterModificador(codigo) {
         const mapa = {
-            1: "- (Aumento de forca)", 5: "+ (Aumento de tempo)", 6: "< (Aumento de raio)",
+            1: "- (Aumento de forca)", 2: "│ (Aumento de forca)", 3: "╱ (Aumento de forca)", 
+            4: "╲ (Aumento de forca)", 5: "+ (Aumento de tempo)", 6: "< (Aumento de raio)",
             7: "> (Aumento de raio)", 8: "# (Aumenta a resistencia)", 9: "$ (Aumenta a velocidade)",
-            10: "& (Infusao)", 11: "= (Fusao / Criar Composto)", 12: "/ (Inversao)",
+            10: "& (Infusao)", 11: "= (Fusao / Criar Composto)", 12: "÷ (Inversao)",
             13: "◇ (Placa)", 14: "■ (Cubo)", 15: "• (Esfera)"
         };
         if (mapa[codigo]) return mapa[codigo];
@@ -244,7 +249,7 @@
     }
 
     function identificarFusao(nucleo, m) {
-        let pares_raio = Math.min(m[6] || 0, m[7] || 0); // (m[6] < m[7]) ? m[6] : m[7]
+        let pares_raio = Math.min(m[6] || 0, m[7] || 0); 
         
         if (nucleo === 'W' && m[9] >= 2 && pares_raio >= 1) return "Calor (K)";
         if (nucleo === 'W' && m[9] >= 1 && pares_raio >= 2) return "Explosao (V)";
@@ -323,7 +328,6 @@
                 index_atual += 2;
             }
             
-            // Renderização do HTML copiando a formatação ANSI do C
             let res = `<div style="color: rgb(${r},${g},${b}); background-color: rgb(${inv_r},${inv_g},${inv_b}); padding: 10px; border-radius: 4px;">`;
             res += `==========================================\n`;
             res += `         ANALISE DO GRIFO MAGICO          \n`;
@@ -359,7 +363,6 @@
             out.innerHTML = "<span style='color:red'>[ERRO FATAL] Ocorreu uma falha no parsing: " + e.message + "</span>";
         }
     };
-    // ------------------------------------------------------------------
 
     document.getElementById('btnChaos').onclick = () => {
         let randomCoreIdx = Math.floor(Math.random() * ALPHABET.length);
@@ -702,7 +705,6 @@
         
         codeInput.value = configToCode(config);
         
-        // Se o painel secreto estiver aberto, atualiza o ID lá também
         let painelSecreto = document.getElementById('secretPanel');
         if (painelSecreto.style.display === 'flex') {
             document.getElementById('admCurrentId').innerText = codeInput.value;
@@ -1074,7 +1076,7 @@
 
     document.getElementById('btnSaveImage').onclick = () => exportImage(false);
     document.getElementById('btnSaveTransparent').onclick = () => exportImage(true);
-    document.getElementById('btnSaveSVG').onclick = exportSVG;
+    document.getElementById('btnSaveSVG').onclick = exportSVG; // Botão que agora vive na área secreta
 
     // Inicialização
     updateMatrixUI();
