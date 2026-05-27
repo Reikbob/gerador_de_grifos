@@ -238,9 +238,11 @@
             4: "╲ (Aumento de forca)", 5: "+ (Aumento de tempo)", 6: "< (Aumento de raio)",
             7: "> (Aumento de raio)", 8: "# (Aumenta a resistencia)", 9: "$ (Aumenta a velocidade)",
             10: "& (Infusao)", 11: "= (Fusao / Criar Composto)", 12: "÷ (Inversao)",
-            13: "◇ (Placa)", 14: "■ (Cubo)", 15: "• (Esfera)", 16: "% (repetir)"
+            13: "◇ (Placa)", 14: "■ (Cubo)", 15: "• (Esfera)", 16: "% (Repetir)"
         };
         if (mapa[codigo]) return mapa[codigo];
+        
+        // Letras começam no código 17 (A=17, B=18...)
         if (codigo >= 17 && codigo <= 42) {
             let letra = String.fromCharCode('A'.charCodeAt(0) + (codigo - 17));
             return `Elemento Secundario [${letra}] - ${obterElementoBase(letra)}`;
