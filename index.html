@@ -64,7 +64,6 @@
 </head>
 <body>
 
-    <!-- PAINEL ESQUERDO: PINCEL -->
     <div class="panel left-panel">
         
         <div class="id-container">
@@ -104,7 +103,6 @@
         <label><strong>Modificadores:</strong></label>
         <button id="btnOpenMatrix" class="tool-btn modal-btn">Abrir Matriz de Modificadores</button>
         
-        <!-- O BOTÃO DO CAOS -->
         <button id="btnChaos" class="tool-btn" style="background-color: #fd7e14; color: black; border: 1px solid #d39e00; margin-top: 5px;">🎲 Gerar Grifo Aleatório (Caos)</button>
 
         <hr style="width: 100%; border: 1px solid #ddd; margin: 5px 0;">
@@ -113,13 +111,13 @@
         <button class="tool-btn" id="btnEquipBrush">Equipar Pincel</button>
     </div>
 
-    <!-- PAINEL CENTRAL: FOLHA -->
     <div class="panel center-panel">
         <div id="lblTool" class="header-info">Ferramenta Atual: Pincel<br><span style="font-size:12px; font-weight:normal; color:#333;" id="lblInstrucoes">(Botão Esquerdo PINTA | Botão Direito ARRASTE para recortar)</span></div>
-        <div style="display: flex; gap: 10px; margin-bottom: 10px; justify-content: center;">
+        <div style="display: flex; gap: 8px; margin-bottom: 10px; justify-content: center; flex-wrap: wrap;">
             <button id="btnClear" style="background: #dc3545;">Limpar Folha</button>
             <button id="btnSaveImage">Salvar (C/ Fundo)</button>
             <button id="btnSaveTransparent" style="background: #17a2b8;">Salvar (Sem Fundo)</button>
+            <button id="btnSaveSVG" style="background: #20c997; color: black; border: 1px solid #1aa179;">Salvar (SVG para 3D)</button>
         </div>
         
         <div class="paper-container" id="paperContainer">
@@ -127,12 +125,10 @@
         </div>
     </div>
 
-    <!-- PAINEL DIREITO: CARIMBOS -->
     <div class="panel right-panel" id="stampsPanel">
         <h3>Carimbos (Slots Rápidos)</h3>
     </div>
 
-    <!-- JANELA FLUTUANTE DA MATRIZ -->
     <div id="matrixModal" class="modal-overlay">
         <div class="modal-content">
             <h3 style="border: none; font-size: 18px;">Editar Modificadores</h3>
@@ -179,7 +175,6 @@
         coreCombo.appendChild(opt);
     });
 
-    // Função de Gerador Aleatório (Botão do Caos)
     document.getElementById('btnChaos').onclick = () => {
         let randomCoreIdx = Math.floor(Math.random() * ALPHABET.length);
         coreCombo.value = ALPHABET[randomCoreIdx];
@@ -218,7 +213,6 @@
         equipBrush(); 
     };
 
-    // Toggle Modo Alinhamento
     btnAlignMode.onclick = () => {
         alignMode = !alignMode;
         if (alignMode) {
@@ -244,7 +238,6 @@
         }
     }
 
-    // Lógica do Modal (Janela Flutuante)
     const modal = document.getElementById('matrixModal');
     const btnOpenMatrix = document.getElementById('btnOpenMatrix');
     const btnCloseMatrix = document.getElementById('btnCloseMatrix');
@@ -270,7 +263,6 @@
         }
     }
 
-    // Conversões de Cor e Hexadecimal
     const colorInput = document.getElementById('lineColor');
     const btnColor = document.getElementById('btnColor');
     btnColor.onclick = () => colorInput.click();
@@ -296,7 +288,6 @@
         colorInput.value = hex;
     }
 
-    // Geração de Matriz UI
     const levelCombo = document.getElementById('levelCombo');
     const matrixTable = document.getElementById('matrixTable');
     
@@ -338,7 +329,6 @@
         document.getElementById(id).onchange = updatePreview;
     });
 
-    // SISTEMA DE ENCODE
     function configToCode(config) {
         let lvlStr = String(config.level).padStart(2, '0');
         let coreStr = String(ALPHABET.indexOf(config.core) + 1).padStart(2, '0');
@@ -370,7 +360,6 @@
         return lvlStr + coreStr + barsStr + colorStr + matrixStr;
     }
 
-    // SISTEMA DE DECODE
     document.getElementById('btnLoadCode').onclick = () => {
         let code = codeInput.value.trim();
         if(code.length < 17) return alert("Código inválido ou muito curto!");
@@ -429,7 +418,6 @@
         setTimeout(() => btn.innerText = "Copiar", 1500);
     };
 
-    // Lógica do Grifo Visual
     class Glyph {
         constructor(x, y, config) {
             this.x = x;
@@ -534,7 +522,6 @@
         redrawPaper(); 
     }
 
-    // Geração de UI dos Carimbos
     const stampsPanel = document.getElementById('stampsPanel');
     for (let i = 0; i < 4; i++) {
         let div = document.createElement('div');
@@ -602,7 +589,6 @@
         modal.style.display = 'flex'; 
     };
 
-    // INTERAÇÃO COM A FOLHA PRINCIPAL & ALINHAMENTO
     let isSelecting = false;
     let hasSelectionBox = false; 
     let selStart = {x: 0, y: 0};
@@ -632,7 +618,6 @@
         };
     }
 
-    // A função de renderização agora sabe se é pra desenhar fundo branco ou não
     function redrawPaper(isExporting = false, isTransparent = false) {
         paperCtx.clearRect(0, 0, paperCanvas.width, paperCanvas.height);
         
@@ -779,10 +764,8 @@
         redrawPaper();
     };
 
-    // Nova função unificada de exportação
-    function exportImage(isTransparent) {
-        if (drawnGlyphs.length === 0) return alert("A folha está vazia!");
-        
+    // FUNÇÕES DE EXPORTAÇÃO
+    function getExportBounds() {
         let cropX, cropY, cropW, cropH;
         let w = Math.abs(selStart.x - selCurrent.x);
         
@@ -805,36 +788,112 @@
             cropW = Math.min(paperCanvas.width - cropX, (maxX - minX) + 20);
             cropH = Math.min(paperCanvas.height - cropY, (maxY - minY) + 20);
         }
+        return {x: cropX, y: cropY, w: cropW, h: cropH};
+    }
 
+    function exportImage(isTransparent) {
+        if (drawnGlyphs.length === 0) return alert("A folha está vazia!");
+        
+        let bounds = getExportBounds();
+        
         selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
         hasSelectionBox = false; 
         
-        // Passa a variável de transparência para a renderização da "foto"
         redrawPaper(true, isTransparent); 
 
         let tempCanvas = document.createElement('canvas');
-        tempCanvas.width = cropW;
-        tempCanvas.height = cropH;
+        tempCanvas.width = bounds.w;
+        tempCanvas.height = bounds.h;
         let tCtx = tempCanvas.getContext('2d');
         
         if (!isTransparent) {
             tCtx.fillStyle = "white";
-            tCtx.fillRect(0, 0, cropW, cropH);
+            tCtx.fillRect(0, 0, bounds.w, bounds.h);
         }
         
-        tCtx.drawImage(paperCanvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+        tCtx.drawImage(paperCanvas, bounds.x, bounds.y, bounds.w, bounds.h, 0, 0, bounds.w, bounds.h);
 
         let link = document.createElement('a');
         link.download = isTransparent ? 'circuito_magico_transparente.png' : 'circuito_magico.png';
         link.href = tempCanvas.toDataURL('image/png');
         link.click();
         
-        // Retorna a tela ao normal (com fundo branco para poder enxergar)
         redrawPaper(false, false); 
+    }
+
+    // NOVA FUNÇÃO: Exportar SVG Nativo
+    function exportSVG() {
+        if (drawnGlyphs.length === 0) return alert("A folha está vazia!");
+        
+        let bounds = getExportBounds();
+        
+        // Inicia a string do formato SVG
+        let svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${bounds.w} ${bounds.h}" width="${bounds.w}" height="${bounds.h}">\n`;
+        
+        // Passa por todos os grifos desenhados e converte a matemática para tags SVG
+        drawnGlyphs.forEach(g => {
+            let cx = g.x - bounds.x;
+            let cy = g.y - bounds.y;
+            let r = g.radius;
+            let color = g.config.color;
+            
+            svgStr += `  <g transform="translate(${cx}, ${cy})">\n`;
+            
+            // Círculo
+            svgStr += `    <circle cx="0" cy="0" r="${r}" stroke="${color}" stroke-width="2" fill="none" />\n`;
+            
+            // Barras
+            let bLen = 15;
+            if (g.config.bars.top) svgStr += `    <line x1="0" y1="${-r}" x2="0" y2="${-r + bLen}" stroke="${color}" stroke-width="4" stroke-linecap="square"/>\n`;
+            if (g.config.bars.bottom) svgStr += `    <line x1="0" y1="${r}" x2="0" y2="${r - bLen}" stroke="${color}" stroke-width="4" stroke-linecap="square"/>\n`;
+            if (g.config.bars.left) svgStr += `    <line x1="${-r}" y1="0" x2="${-r + bLen}" y2="0" stroke="${color}" stroke-width="4" stroke-linecap="square"/>\n`;
+            if (g.config.bars.right) svgStr += `    <line x1="${r}" y1="0" x2="${r - bLen}" y2="0" stroke="${color}" stroke-width="4" stroke-linecap="square"/>\n`;
+            
+            // Modificadores da Matriz
+            if (g.config.level > 1) {
+                let size = (g.config.level * 2) - 1;
+                let startX = -(size * CELL_SIZE) / 2 + (CELL_SIZE / 2);
+                let startY = -(size * CELL_SIZE) / 2 + (CELL_SIZE / 2);
+                
+                for (let row = 0; row < size; row++) {
+                    for (let col = 0; col < size; col++) {
+                        let isCenter = (row === Math.floor(size/2) && col === Math.floor(size/2));
+                        if (!isCenter && g.config.matrix[row][col]) {
+                            let tx = startX + col * CELL_SIZE;
+                            let ty = startY + row * CELL_SIZE;
+                            // dy="0.35em" alinha o texto perfeitamente no centro vertical no SVG
+                            svgStr += `    <text x="${tx}" y="${ty}" fill="${color}" font-family="Courier, monospace" font-weight="bold" font-size="16px" text-anchor="middle" dy="0.35em">${g.config.matrix[row][col]}</text>\n`;
+                        }
+                    }
+                }
+            }
+            
+            // Núcleo
+            svgStr += `    <text x="0" y="0" fill="#3232c8" font-family="Courier, monospace" font-weight="bold" font-size="18px" text-anchor="middle" dy="0.35em">${g.config.core}</text>\n`;
+            
+            svgStr += `  </g>\n`;
+        });
+        
+        svgStr += `</svg>`;
+        
+        // Empacota o arquivo texto como um Download do navegador
+        let blob = new Blob([svgStr], {type: "image/svg+xml;charset=utf-8"});
+        let url = URL.createObjectURL(blob);
+        let link = document.createElement('a');
+        link.download = 'circuito_magico.svg';
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+        
+        // Limpa a interface
+        selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
+        hasSelectionBox = false; 
+        redrawPaper(false, false);
     }
 
     document.getElementById('btnSaveImage').onclick = () => exportImage(false);
     document.getElementById('btnSaveTransparent').onclick = () => exportImage(true);
+    document.getElementById('btnSaveSVG').onclick = exportSVG;
 
     // Inicialização
     updateMatrixUI();
