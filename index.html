@@ -169,7 +169,7 @@
 
 <script>
     // Configurações Base
-    const VALID_MODS = ["", "─", "│", "╱", "╲", "+", "<", ">", "#", "$", "&", "=", "÷", "□", "■", "●", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
+    const VALID_MODS = ["", "─", "│", "╱", "╲", "+", "<", ">", "#", "$", "&", "=", "÷", "□", "■", "●", ..., "%", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
     const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
     const CELL_SIZE = 30;
     
@@ -238,7 +238,7 @@
             4: "╲ (Aumento de forca)", 5: "+ (Aumento de tempo)", 6: "< (Aumento de raio)",
             7: "> (Aumento de raio)", 8: "# (Aumenta a resistencia)", 9: "$ (Aumenta a velocidade)",
             10: "& (Infusao)", 11: "= (Fusao / Criar Composto)", 12: "÷ (Inversao)",
-            13: "◇ (Placa)", 14: "■ (Cubo)", 15: "• (Esfera)"
+            13: "◇ (Placa)", 14: "■ (Cubo)", 15: "• (Esfera)", 16: "% (repetir)"
         };
         if (mapa[codigo]) return mapa[codigo];
         if (codigo >= 16 && codigo <= 41) {
