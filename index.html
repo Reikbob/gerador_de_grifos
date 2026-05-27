@@ -242,7 +242,7 @@
         };
         if (mapa[codigo]) return mapa[codigo];
         if (codigo >= 17 && codigo <= 42) {
-            let letra = String.fromCharCode('A'.charCodeAt(0) + (codigo - 16));
+            let letra = String.fromCharCode('A'.charCodeAt(0) + (codigo - 17));
             return `Elemento Secundario [${letra}] - ${obterElementoBase(letra)}`;
         }
         return "Simbolo Desconhecido";
