@@ -102,11 +102,12 @@
 
         <label><strong>Modificadores:</strong></label>
         <button id="btnOpenMatrix" class="tool-btn modal-btn">Abrir Matriz de Modificadores</button>
+        
+        <button id="btnChaos" class="tool-btn" style="background-color: #fd7e14; color: black; border: 1px solid #d39e00; margin-top: 5px;">🎲 Gerar Grifo Aleatório (Caos)</button>
 
         <hr style="width: 100%; border: 1px solid #ddd; margin: 5px 0;">
         
         <button id="btnAlignMode" class="tool-btn" style="background-color: #6f42c1;">Modo Alinhamento: OFF</button>
-        
         <button class="tool-btn" id="btnEquipBrush">Equipar Pincel</button>
     </div>
 
@@ -171,6 +172,50 @@
         opt.textContent = letter;
         coreCombo.appendChild(opt);
     });
+
+    // Função de Gerador Aleatório (Botão do Caos)
+    document.getElementById('btnChaos').onclick = () => {
+        // Seleciona um núcleo aleatório
+        let randomCoreIdx = Math.floor(Math.random() * ALPHABET.length);
+        coreCombo.value = ALPHABET[randomCoreIdx];
+        
+        // Sorteia as direções
+        document.getElementById('chkTop').checked = Math.random() > 0.5;
+        document.getElementById('chkBottom').checked = Math.random() > 0.5;
+        document.getElementById('chkLeft').checked = Math.random() > 0.5;
+        document.getElementById('chkRight').checked = Math.random() > 0.5;
+        
+        // Gera uma cor aleatória legível (RGB de 0 a 180 para não ficar muito claro)
+        let r = Math.floor(Math.random() * 180);
+        let g = Math.floor(Math.random() * 180);
+        let b = Math.floor(Math.random() * 180);
+        applyColorStyle(rgbToHex(r, g, b));
+        
+        // Sorteia a matriz (se houver)
+        let lvl = parseInt(levelCombo.value);
+        if (lvl > 1) {
+            let size = (lvl * 2) - 1;
+            let trs = matrixTable.querySelectorAll('tr');
+            for (let row = 0; row < size; row++) {
+                let selects = trs[row].querySelectorAll('select');
+                for (let col = 0; col < size; col++) {
+                    let isCenter = (row === Math.floor(size/2) && col === Math.floor(size/2));
+                    if (!isCenter) {
+                        // 50% de chance de ficar vazio para o grifo não virar um borrão
+                        if (Math.random() > 0.5) {
+                            let randomModIdx = Math.floor(Math.random() * (VALID_MODS.length - 1)) + 1; 
+                            selects[col].value = VALID_MODS[randomModIdx];
+                        } else {
+                            selects[col].value = ""; 
+                        }
+                    }
+                }
+            }
+        }
+        
+        updatePreview();
+        equipBrush(); // Garante que você voltará para o pincel caso estivesse com um carimbo salvo
+    };
 
     // Toggle Modo Alinhamento
     btnAlignMode.onclick = () => {
@@ -558,7 +603,7 @@
 
     // INTERAÇÃO COM A FOLHA PRINCIPAL & ALINHAMENTO
     let isSelecting = false;
-    let hasSelectionBox = false; // VARIÁVEL NOVA: Mantém o quadrado vermelho vivo
+    let hasSelectionBox = false; 
     let selStart = {x: 0, y: 0};
     let selCurrent = {x: 0, y: 0};
     
@@ -634,7 +679,6 @@
             }
         }
 
-        // DESENHA A CAIXA MESMO SE O MOUSE JÁ TIVER SOLTADO
         if (hasSelectionBox) {
             paperCtx.strokeStyle = "red";
             paperCtx.lineWidth = 2;
@@ -652,7 +696,7 @@
         const pos = getMousePos(paperCanvas, e);
         
         if (e.button === 0) { 
-            hasSelectionBox = false; // Clicou com o esquerdo apaga o quadrado
+            hasSelectionBox = false; 
             
             if (alignMode) {
                 if (!alignSource && hoveredGlyph) {
@@ -676,7 +720,7 @@
                 redrawPaper();
             } else {
                 isSelecting = true;
-                hasSelectionBox = true; // Avisa que existe um quadrado
+                hasSelectionBox = true; 
                 selStart = pos;
                 selCurrent = pos;
             }
@@ -718,7 +762,7 @@
     window.addEventListener('mouseup', e => {
         if (e.button === 2 && isSelecting) {
             isSelecting = false; 
-            redrawPaper(); // Redesenha a última posição e deixa o quadrado lá
+            redrawPaper(); 
         }
     });
 
@@ -758,7 +802,7 @@
         }
 
         selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
-        hasSelectionBox = false; // Apaga o quadrado após salvar
+        hasSelectionBox = false; 
         
         redrawPaper(true); 
 
@@ -784,5 +828,3 @@
     redrawPaper();
 
 </script>
-</body>
-</html>
