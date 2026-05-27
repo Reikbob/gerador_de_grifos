@@ -241,7 +241,7 @@
             13: "◇ (Placa)", 14: "■ (Cubo)", 15: "• (Esfera)", 16: "% (repetir)"
         };
         if (mapa[codigo]) return mapa[codigo];
-        if (codigo >= 16 && codigo <= 41) {
+        if (codigo >= 17 && codigo <= 42) {
             let letra = String.fromCharCode('A'.charCodeAt(0) + (codigo - 16));
             return `Elemento Secundario [${letra}] - ${obterElementoBase(letra)}`;
         }
