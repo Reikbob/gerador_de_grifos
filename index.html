@@ -60,9 +60,32 @@
         
         input[type="checkbox"], select { cursor: pointer; }
         .header-info { color: blue; font-weight: bold; margin-bottom: 5px; font-size: 14px; text-align: center; }
+
+        /* Estilos do Terminal Secreto */
+        #secretPanel {
+            position: fixed; top: 5%; left: 5%; width: 90%; height: 90%;
+            background: rgba(10, 10, 10, 0.95); border: 2px solid #0f0;
+            color: #0f0; z-index: 9999; padding: 20px; font-family: monospace;
+            display: none; box-sizing: border-box; flex-direction: column;
+            border-radius: 8px; box-shadow: 0 0 20px #0f0;
+        }
+        #terminalOutput {
+            flex-grow: 1; overflow-y: auto; background: #000; border: 1px solid #333;
+            padding: 15px; margin-top: 15px; white-space: pre-wrap; word-wrap: break-word;
+        }
     </style>
 </head>
 <body>
+
+    <div id="secretPanel">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin: 0;">TERMINAL ADM - DECODIFICADOR DE GRIFOS</h2>
+            <button onclick="document.getElementById('secretPanel').style.display='none'" style="background: #f00; color: #fff;">X FECHAR</button>
+        </div>
+        <p style="margin: 15px 0;">ID Capturado: <span id="admCurrentId" style="background: #222; padding: 2px 5px;"></span></p>
+        <button id="btnRunCode" style="background: #0f0; color: #000; font-weight: bold; width: 200px;">RODAR ANÁLISE</button>
+        <div id="terminalOutput">Aguardando execução...</div>
+    </div>
 
     <div class="panel left-panel">
         
@@ -174,6 +197,169 @@
         opt.textContent = letter;
         coreCombo.appendChild(opt);
     });
+
+    // ------------------------------------------------------------------
+    // SISTEMA DO TERMINAL ADM (Tradução do C)
+    // ------------------------------------------------------------------
+    
+    // Gatilho: Ctrl + Shift + Y
+    document.addEventListener('keydown', function(event) {
+        if (event.ctrlKey && event.shiftKey && event.key.toUpperCase() === 'Y') {
+            const panel = document.getElementById('secretPanel');
+            if (panel.style.display === 'none' || panel.style.display === '') {
+                panel.style.display = 'flex';
+                document.getElementById('admCurrentId').innerText = codeInput.value;
+                document.getElementById('terminalOutput').innerHTML = "Aguardando execução...";
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+    });
+
+    function obterElementoBase(letra) {
+        const mapa = {
+            'S': "Ar", 'W': "Fogo", 'H': "Terra", 'R': "Agua", 'Z': "Raio",
+            'K': "Calor", 'M': "Planta", 'A': "Gelo", 'X': "Luz", 'O': "Vacuo",
+            'G': "Pedra", 'C': "Sabao", 'V': "Explosao", 'U': "Barro", 'E': "Frio",
+            'J': "Som", 'P': "Portal", 'F': "Areia", 'D': "Metal", 'B': "Madeira",
+            'N': "Cura", 'Q': "Visao", 'Y': "Fio", 'T': "Repulsao", 'L': "Vidro",
+            'I': "Materia Escura"
+        };
+        return mapa[letra] || "Elemento Desconhecido";
+    }
+
+    function obterModificador(codigo) {
+        const mapa = {
+            1: "- (Aumento de forca)", 5: "+ (Aumento de tempo)", 6: "< (Aumento de raio)",
+            7: "> (Aumento de raio)", 8: "# (Aumenta a resistencia)", 9: "$ (Aumenta a velocidade)",
+            10: "& (Infusao)", 11: "= (Fusao / Criar Composto)", 12: "/ (Inversao)",
+            13: "◇ (Placa)", 14: "■ (Cubo)", 15: "• (Esfera)"
+        };
+        if (mapa[codigo]) return mapa[codigo];
+        if (codigo >= 16 && codigo <= 41) {
+            let letra = String.fromCharCode('A'.charCodeAt(0) + (codigo - 16));
+            return `Elemento Secundario [${letra}] - ${obterElementoBase(letra)}`;
+        }
+        return "Simbolo Desconhecido";
+    }
+
+    function identificarFusao(nucleo, m) {
+        let pares_raio = Math.min(m[6] || 0, m[7] || 0); // (m[6] < m[7]) ? m[6] : m[7]
+        
+        if (nucleo === 'W' && m[9] >= 2 && pares_raio >= 1) return "Calor (K)";
+        if (nucleo === 'W' && m[9] >= 1 && pares_raio >= 2) return "Explosao (V)";
+        if (nucleo === 'H' && m[9] >= 3) return "Planta (M)";
+        if (nucleo === 'R' && m[8] >= 2 && m[9] >= 1) return "Gelo (A)";
+        if (nucleo === 'Z' && m[9] >= 3) return "Luz (X)";
+        if (nucleo === 'S' && pares_raio >= 2 && m[9] >= 1) return "Vacuo (O)";
+        if (nucleo === 'H' && m[8] >= 3) return "Pedra (G)";
+        if (nucleo === 'R' && pares_raio >= 1 && m[10] >= 1 && m[8] >= 1) return "Sabao (C)";
+        if (nucleo === 'H' && m[5] >= 1 && m[8] >= 1) return "Barro (U)";
+        if (nucleo === 'S' && m[8] >= 2 && pares_raio >= 1) return "Frio (E)";
+        if (nucleo === 'S' && m[9] >= 1 && pares_raio >= 1 && m[10] >= 1) return "Som (J)";
+        if (nucleo === 'Z' && pares_raio >= 2 && m[10] >= 1) return "Portal (P)";
+        if (nucleo === 'H' && pares_raio >= 1 && m[8] >= 1 && m[12] >= 1) return "Areia (F)";
+        if (nucleo === 'G' && m[8] >= 3) return "Metal (D)";
+        if (nucleo === 'M' && m[8] >= 2 && pares_raio >= 1) return "Madeira (B)";
+        if (nucleo === 'M' && pares_raio >= 2 && m[9] >= 1) return "Cura (N)";
+        if (nucleo === 'X' && pares_raio >= 3) return "Visao (Q)"; 
+        if (nucleo === 'M' && pares_raio >= 3) return "Fio (Y)";
+        if (nucleo === 'O' && pares_raio >= 2 && m[8] >= 1) return "Repulsao (T)";
+        if (nucleo === 'F' && m[8] >= 2 && m[10] >= 1) return "Vidro (L)";
+        
+        if (nucleo === 'O' && m[20] >= 1 && m[35] >= 1) return "Materia Escura (I)";
+
+        return "Falha na Fusao (Receita Invalida / Incompleta)";
+    }
+
+    document.getElementById('btnRunCode').onclick = () => {
+        let id = document.getElementById('admCurrentId').innerText;
+        let out = document.getElementById('terminalOutput');
+        
+        if (id.length < 17) {
+            out.innerHTML = "<span style='color:red'>Erro fatal: ID invalido! Muito curto.</span>";
+            return;
+        }
+
+        try {
+            let nivel = parseInt(id.substring(0, 2), 10);
+            let valNucleo = parseInt(id.substring(2, 4), 10);
+            let nucleo = String.fromCharCode('A'.charCodeAt(0) + (valNucleo - 1));
+            
+            let dir_cima = id[4] === '1';
+            let dir_baixo = id[5] === '1';
+            let dir_esq = id[6] === '1';
+            let dir_dir = id[7] === '1';
+            
+            let direcao_texto = "";
+            if (dir_cima && dir_baixo && !dir_esq && !dir_dir) direcao_texto = "Reto (Cima e Baixo)";
+            else if (dir_cima && dir_dir) direcao_texto = "Diagonal Direita para Cima";
+            else if (dir_cima && dir_esq) direcao_texto = "Diagonal Esquerda para Cima";
+            else if (dir_baixo && dir_dir) direcao_texto = "Diagonal Direita para Baixo";
+            else if (dir_baixo && dir_esq) direcao_texto = "Diagonal Esquerda para Baixo";
+            else if (dir_cima) direcao_texto = "Para Cima";
+            else if (dir_baixo) direcao_texto = "Para Baixo";
+            else if (dir_esq) direcao_texto = "Para o Lado (Esquerda)";
+            else if (dir_dir) direcao_texto = "Para o Lado (Direita)";
+            else direcao_texto = "Sem direcao ou Imovel";
+            
+            let r = parseInt(id.substring(8, 11), 10);
+            let g = parseInt(id.substring(11, 14), 10);
+            let b = parseInt(id.substring(14, 17), 10);
+            let inv_r = 255 - r, inv_g = 255 - g, inv_b = 255 - b;
+            
+            let qtd_celulas = (nivel === 2) ? 8 : (nivel === 3) ? 24 : (nivel === 4) ? 48 : 0;
+            let modificadores = Array(42).fill(0);
+            let index_atual = 17;
+            let tem_igual = false;
+            
+            for (let i = 0; i < qtd_celulas; i++) {
+                if (index_atual + 1 >= id.length) break;
+                let cod_mod = parseInt(id.substring(index_atual, index_atual + 2), 10);
+                if (cod_mod >= 0 && cod_mod <= 41) {
+                    modificadores[cod_mod]++;
+                    if (cod_mod === 11) tem_igual = true;
+                }
+                index_atual += 2;
+            }
+            
+            // Renderização do HTML copiando a formatação ANSI do C
+            let res = `<div style="color: rgb(${r},${g},${b}); background-color: rgb(${inv_r},${inv_g},${inv_b}); padding: 10px; border-radius: 4px;">`;
+            res += `==========================================\n`;
+            res += `         ANALISE DO GRIFO MAGICO          \n`;
+            res += `==========================================\n`;
+            res += `-> Nivel do Grifo: ${nivel}\n`;
+            res += `-> Nucleo Primario: [${nucleo}] - ${obterElementoBase(nucleo)}\n`;
+            res += `-> Direcao de Lancamento: ${direcao_texto}\n`;
+            res += `\n--- COMPOSICAO E MODIFICADORES ---\n`;
+            
+            if (tem_igual) {
+                res += `[!] FUSAO MAGICA DETECTADA ('=')\n`;
+                res += `-> Novo Elemento Gerado: *** ${identificarFusao(nucleo, modificadores)} ***\n`;
+                res += `   (Receita baseada nos modificadores ativos descritos abaixo)\n\n`;
+            }
+            
+            let mods_encontrados = 0;
+            for (let i = 1; i <= 41; i++) {
+                if (modificadores[i] > 0) {
+                    res += ` - ${modificadores[i]}x ${obterModificador(i)}\n`;
+                    mods_encontrados++;
+                }
+            }
+            
+            if (mods_encontrados === 0) {
+                res += ` - Nenhum modificador ativo encontrado (00).\n`;
+            }
+            
+            res += `\n-> Cor RGB Original: (${r}, ${g}, ${b})\n`;
+            res += `==========================================\n</div>`;
+            
+            out.innerHTML = res;
+        } catch(e) {
+            out.innerHTML = "<span style='color:red'>[ERRO FATAL] Ocorreu uma falha no parsing: " + e.message + "</span>";
+        }
+    };
+    // ------------------------------------------------------------------
 
     document.getElementById('btnChaos').onclick = () => {
         let randomCoreIdx = Math.floor(Math.random() * ALPHABET.length);
@@ -516,6 +702,12 @@
         
         codeInput.value = configToCode(config);
         
+        // Se o painel secreto estiver aberto, atualiza o ID lá também
+        let painelSecreto = document.getElementById('secretPanel');
+        if (painelSecreto.style.display === 'flex') {
+            document.getElementById('admCurrentId').innerText = codeInput.value;
+        }
+        
         let glyph = new Glyph(previewCanvas.width / 2, previewCanvas.height / 2, config);
         glyph.draw(previewCtx);
         
@@ -764,7 +956,6 @@
         redrawPaper();
     };
 
-    // FUNÇÕES DE EXPORTAÇÃO
     function getExportBounds() {
         let cropX, cropY, cropW, cropH;
         let w = Math.abs(selStart.x - selCurrent.x);
@@ -821,16 +1012,13 @@
         redrawPaper(false, false); 
     }
 
-    // NOVA FUNÇÃO: Exportar SVG Nativo
     function exportSVG() {
         if (drawnGlyphs.length === 0) return alert("A folha está vazia!");
         
         let bounds = getExportBounds();
         
-        // Inicia a string do formato SVG
         let svgStr = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${bounds.w} ${bounds.h}" width="${bounds.w}" height="${bounds.h}">\n`;
         
-        // Passa por todos os grifos desenhados e converte a matemática para tags SVG
         drawnGlyphs.forEach(g => {
             let cx = g.x - bounds.x;
             let cy = g.y - bounds.y;
@@ -839,17 +1027,14 @@
             
             svgStr += `  <g transform="translate(${cx}, ${cy})">\n`;
             
-            // Círculo
             svgStr += `    <circle cx="0" cy="0" r="${r}" stroke="${color}" stroke-width="2" fill="none" />\n`;
             
-            // Barras
             let bLen = 15;
             if (g.config.bars.top) svgStr += `    <line x1="0" y1="${-r}" x2="0" y2="${-r + bLen}" stroke="${color}" stroke-width="4" stroke-linecap="square"/>\n`;
             if (g.config.bars.bottom) svgStr += `    <line x1="0" y1="${r}" x2="0" y2="${r - bLen}" stroke="${color}" stroke-width="4" stroke-linecap="square"/>\n`;
             if (g.config.bars.left) svgStr += `    <line x1="${-r}" y1="0" x2="${-r + bLen}" y2="0" stroke="${color}" stroke-width="4" stroke-linecap="square"/>\n`;
             if (g.config.bars.right) svgStr += `    <line x1="${r}" y1="0" x2="${r - bLen}" y2="0" stroke="${color}" stroke-width="4" stroke-linecap="square"/>\n`;
             
-            // Modificadores da Matriz
             if (g.config.level > 1) {
                 let size = (g.config.level * 2) - 1;
                 let startX = -(size * CELL_SIZE) / 2 + (CELL_SIZE / 2);
@@ -861,14 +1046,12 @@
                         if (!isCenter && g.config.matrix[row][col]) {
                             let tx = startX + col * CELL_SIZE;
                             let ty = startY + row * CELL_SIZE;
-                            // dy="0.35em" alinha o texto perfeitamente no centro vertical no SVG
                             svgStr += `    <text x="${tx}" y="${ty}" fill="${color}" font-family="Courier, monospace" font-weight="bold" font-size="16px" text-anchor="middle" dy="0.35em">${g.config.matrix[row][col]}</text>\n`;
                         }
                     }
                 }
             }
             
-            // Núcleo
             svgStr += `    <text x="0" y="0" fill="#3232c8" font-family="Courier, monospace" font-weight="bold" font-size="18px" text-anchor="middle" dy="0.35em">${g.config.core}</text>\n`;
             
             svgStr += `  </g>\n`;
@@ -876,7 +1059,6 @@
         
         svgStr += `</svg>`;
         
-        // Empacota o arquivo texto como um Download do navegador
         let blob = new Blob([svgStr], {type: "image/svg+xml;charset=utf-8"});
         let url = URL.createObjectURL(blob);
         let link = document.createElement('a');
@@ -885,7 +1067,6 @@
         link.click();
         URL.revokeObjectURL(url);
         
-        // Limpa a interface
         selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
         hasSelectionBox = false; 
         redrawPaper(false, false);
