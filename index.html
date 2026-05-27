@@ -149,8 +149,8 @@
     
     // Estado do Alinhamento
     let alignMode = false;
-    let alignSource = null; // O grifo selecionado como centro
-    let hoveredGlyph = null; // Grifo com o mouse em cima para selecionar
+    let alignSource = null; 
+    let hoveredGlyph = null; 
     let currentMousePos = {x: 0, y: 0};
     let snappedPos = null;
     
@@ -176,13 +176,13 @@
     btnAlignMode.onclick = () => {
         alignMode = !alignMode;
         if (alignMode) {
-            btnAlignMode.style.backgroundColor = "#28a745"; // Verde
+            btnAlignMode.style.backgroundColor = "#28a745"; 
             btnAlignMode.innerText = "Modo Alinhamento: ON";
             updateInstrucoes();
         } else {
-            btnAlignMode.style.backgroundColor = "#6f42c1"; // Roxo
+            btnAlignMode.style.backgroundColor = "#6f42c1"; 
             btnAlignMode.innerText = "Modo Alinhamento: OFF";
-            alignSource = null; // Limpa a ancora se desligar
+            alignSource = null; 
             updateInstrucoes();
             redrawPaper();
         }
@@ -485,7 +485,7 @@
         let glyph = new Glyph(previewCanvas.width / 2, previewCanvas.height / 2, config);
         glyph.draw(previewCtx);
         
-        redrawPaper(); // Atualiza o fantasma se o mouse estiver na tela
+        redrawPaper(); 
     }
 
     // Geração de UI dos Carimbos
@@ -558,6 +558,7 @@
 
     // INTERAÇÃO COM A FOLHA PRINCIPAL & ALINHAMENTO
     let isSelecting = false;
+    let hasSelectionBox = false; // VARIÁVEL NOVA: Mantém o quadrado vermelho vivo
     let selStart = {x: 0, y: 0};
     let selCurrent = {x: 0, y: 0};
     
@@ -577,7 +578,6 @@
         let dist = Math.sqrt(dx*dx + dy*dy);
         let angle = Math.atan2(dy, dx);
         
-        // Arredonda para o multiplo mais próximo de 45 graus (PI/4)
         let snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
         
         return {
@@ -592,15 +592,12 @@
         paperCtx.fillStyle = "white";
         paperCtx.fillRect(0, 0, paperCanvas.width, paperCanvas.height);
 
-        // 1. Desenha os grifos definitivos
         drawnGlyphs.forEach(g => g.draw(paperCtx));
         
-        if (isExporting) return; // Se for exportar imagem, para por aqui (não desenha linhas guias nem seleções)
+        if (isExporting) return; 
         
-        // 2. Se modo alinhamento estiver ON, desenha as linhas guia ou a aura vermelha
         if (alignMode) {
             if (!alignSource && hoveredGlyph) {
-                // Aura vermelha de seleção de âncora
                 paperCtx.beginPath();
                 paperCtx.arc(hoveredGlyph.x, hoveredGlyph.y, hoveredGlyph.radius + 15, 0, Math.PI*2);
                 paperCtx.strokeStyle = "rgba(220, 53, 69, 0.8)";
@@ -610,7 +607,6 @@
                 paperCtx.setLineDash([]);
             } 
             else if (alignSource) {
-                // Desenha os eixos a partir da fonte
                 paperCtx.save();
                 paperCtx.strokeStyle = "rgba(100, 100, 255, 0.3)";
                 paperCtx.setLineDash([5, 5]);
@@ -623,15 +619,13 @@
                 paperCtx.stroke();
                 paperCtx.restore();
                 
-                // Desenha o Fantasma do Pincel na posição grudada
                 if (snappedPos) {
-                    paperCtx.globalAlpha = 0.4; // Transparência para o fantasma
+                    paperCtx.globalAlpha = 0.4; 
                     let ghostConfig = getActiveConfig();
                     let ghost = new Glyph(snappedPos.x, snappedPos.y, ghostConfig);
                     ghost.draw(paperCtx);
                     paperCtx.globalAlpha = 1.0;
                     
-                    // Bolinha vermelha marcando o centro do encaixe
                     paperCtx.fillStyle = "red";
                     paperCtx.beginPath();
                     paperCtx.arc(snappedPos.x, snappedPos.y, 4, 0, Math.PI*2);
@@ -640,8 +634,8 @@
             }
         }
 
-        // 3. Desenha a caixa de seleção de recorte (se existir)
-        if (isSelecting) {
+        // DESENHA A CAIXA MESMO SE O MOUSE JÁ TIVER SOLTADO
+        if (hasSelectionBox) {
             paperCtx.strokeStyle = "red";
             paperCtx.lineWidth = 2;
             paperCtx.setLineDash([5, 5]);
@@ -657,34 +651,32 @@
     paperCanvas.addEventListener('mousedown', e => {
         const pos = getMousePos(paperCanvas, e);
         
-        if (e.button === 0) { // BOTÃO ESQUERDO
+        if (e.button === 0) { 
+            hasSelectionBox = false; // Clicou com o esquerdo apaga o quadrado
+            
             if (alignMode) {
                 if (!alignSource && hoveredGlyph) {
-                    // Fixou a âncora!
                     alignSource = hoveredGlyph;
                     updateInstrucoes();
                 } else if (alignSource && snappedPos) {
-                    // Carimbou no eixo!
                     let config = getActiveConfig();
                     drawnGlyphs.push(new Glyph(snappedPos.x, snappedPos.y, config));
                 }
             } else {
-                // Desenho Normal Livre
                 let config = getActiveConfig();
                 drawnGlyphs.push(new Glyph(pos.x, pos.y, config));
                 selStart = {x:0,y:0}; selCurrent = {x:0,y:0}; 
             }
             redrawPaper();
             
-        } else if (e.button === 2) { // BOTÃO DIREITO
+        } else if (e.button === 2) { 
             if (alignMode && alignSource) {
-                // Desfaz a âncora em vez de iniciar seleção de recorte
                 alignSource = null;
                 updateInstrucoes();
                 redrawPaper();
             } else {
-                // Inicia Seleção de Recorte Manual
                 isSelecting = true;
+                hasSelectionBox = true; // Avisa que existe um quadrado
                 selStart = pos;
                 selCurrent = pos;
             }
@@ -700,7 +692,6 @@
         
         if (alignMode) {
             if (!alignSource) {
-                // Procura se tem algum grifo perto do mouse para selecionar como âncora
                 hoveredGlyph = null;
                 for (let g of drawnGlyphs) {
                     let dx = currentMousePos.x - g.x;
@@ -712,7 +703,6 @@
                     }
                 }
             } else {
-                // Calcula a posição "grudada" na linha
                 snappedPos = getSnappedPos(alignSource, currentMousePos);
             }
         }
@@ -720,7 +710,6 @@
         redrawPaper();
     });
 
-    // Quando tira o mouse do canvas, esconde o fantasma
     paperCanvas.addEventListener('mouseleave', () => {
         snappedPos = null;
         redrawPaper();
@@ -728,13 +717,15 @@
 
     window.addEventListener('mouseup', e => {
         if (e.button === 2 && isSelecting) {
-            isSelecting = false;
+            isSelecting = false; 
+            redrawPaper(); // Redesenha a última posição e deixa o quadrado lá
         }
     });
 
     document.getElementById('btnClear').onclick = () => {
         drawnGlyphs = [];
         alignSource = null;
+        hasSelectionBox = false;
         updateInstrucoes();
         selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
         redrawPaper();
@@ -746,7 +737,7 @@
         let cropX, cropY, cropW, cropH;
         let w = Math.abs(selStart.x - selCurrent.x);
         
-        if (w > 10) { 
+        if (w > 10 && hasSelectionBox) { 
             cropX = Math.min(selStart.x, selCurrent.x);
             cropY = Math.min(selStart.y, selCurrent.y);
             cropW = w;
@@ -767,8 +758,8 @@
         }
 
         selStart = {x:0,y:0}; selCurrent = {x:0,y:0};
+        hasSelectionBox = false; // Apaga o quadrado após salvar
         
-        // Passa 'true' para o redrawPaper esconder as linhas azuis de guia antes da foto
         redrawPaper(true); 
 
         let tempCanvas = document.createElement('canvas');
@@ -785,7 +776,7 @@
         link.href = tempCanvas.toDataURL('image/png');
         link.click();
         
-        redrawPaper(false); // Devolve as linhas
+        redrawPaper(false); 
     };
 
     // Inicialização
